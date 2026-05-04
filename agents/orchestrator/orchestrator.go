@@ -7,7 +7,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/gvamaresh/logposesift/agents/disk_agent"
+	"github.com/gvamaresh/logposesift/agents/memory_agent"
 	"github.com/gvamaresh/logposesift/internal/wrappers"
+	"github.com/gvamaresh/logposesift/internal/logger"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
@@ -15,7 +18,6 @@ import (
 	"google.golang.org/api/option"
 )
 
-// Engine holds BOTH clients so we can fall back seamlessly
 type Engine struct {
 	AnthropicClient *anthropic.Client
 	AnthropicModel  anthropic.Model
@@ -27,20 +29,17 @@ func NewEngine() *Engine {
 	godotenv.Load()
 	eng := &Engine{}
 
-	// 1. Initialize Claude (if key exists)
 	antKey := os.Getenv("ANTHROPIC_API_KEY")
 	if antKey != "" {
 		eng.AnthropicClient = anthropic.NewClient(antKey)
 		eng.AnthropicModel = anthropic.Model("claude-4-6-sonnet-latest")
 	}
 
-	// 2. Initialize Gemini (if key exists)
 	gemKey := os.Getenv("GEMINI_API_KEY")
 	if gemKey != "" {
 		client, err := genai.NewClient(context.Background(), option.WithAPIKey(gemKey))
 		if err == nil {
 			eng.GeminiClient = client
-			// FIX: Locked to 2.5 Flash to explicitly bypass the Gemini 3.0 "Thought Signature" requirement
 			eng.GeminiModel = client.GenerativeModel("gemini-2.5-flash-lite")
 		} else {
 			fmt.Printf("Warning: Failed to initialize Gemini client: %v\n", err)
@@ -58,13 +57,14 @@ func (e *Engine) TestConnection() {
 	fmt.Println("[*] Dual-Engine Bridge is Active.")
 }
 
-// RunTriage acts as the Traffic Cop (Try Claude -> Fallback to Gemini)
-func (e *Engine) RunTriage(evidencePath string) {
+func (e *Engine) RunTriage(evidencePath string, evidenceType string) {
 	fmt.Println("\n[*] AI Orchestrator initialized. Beginning autonomous triage...")
+
+	prompt := fmt.Sprintf("You are LogPoseSIFT, an autonomous DFIR agent. I have a %s evidence file at: %s\nPlease run the appropriate tools or agents to triage this evidence, hunt for malware, and summarize the target system's status.", evidenceType, evidencePath)
 
 	if e.AnthropicClient != nil {
 		fmt.Println("[*] Primary Engine Selected: Claude 4.6 Sonnet")
-		err := e.runClaude(evidencePath)
+		err := e.runClaude(prompt)
 		if err != nil {
 			fmt.Printf("\n[!] Claude Engine Failed: %v\n", err)
 			fmt.Println("[*] ===================================================")
@@ -72,7 +72,7 @@ func (e *Engine) RunTriage(evidencePath string) {
 			fmt.Println("[*] ===================================================")
 			
 			if e.GeminiClient != nil {
-				err := e.runGemini(evidencePath)
+				err := e.runGemini(prompt)
 				if err != nil {
 					log.Fatalf("\n[!] FATAL: Gemini Engine Failed: %v\n", err)
 				}
@@ -82,7 +82,7 @@ func (e *Engine) RunTriage(evidencePath string) {
 		}
 	} else if e.GeminiClient != nil {
 		fmt.Println("[*] Primary Engine (Claude) missing. Defaulting to Gemini...")
-		err := e.runGemini(evidencePath)
+		err := e.runGemini(prompt)
 		if err != nil {
 			log.Fatalf("\n[!] FATAL: Gemini Engine Failed: %v\n", err)
 		}
@@ -90,34 +90,47 @@ func (e *Engine) RunTriage(evidencePath string) {
 }
 
 // ---------------------------------------------------------
-// CLAUDE EXECUTION LOGIC
+// CLAUDE EXECUTION LOGIC (Merged Raw Tools + Agents)
 // ---------------------------------------------------------
-func (e *Engine) runClaude(evidencePath string) error {
-	volatilityTool := anthropic.ToolDefinition{
+
+func (e *Engine) runClaude(prompt string) error {
+	winInfoTool := anthropic.ToolDefinition{
 		Name:        "analyze_memory_windows_info",
 		Description: "Extracts basic OS info from a Windows memory dump using Volatility 3.",
-		InputSchema: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"dump_path": map[string]interface{}{
-					"type":        "string",
-					"description": "Absolute file path to the memory dump.",
-				},
-			},
-			"required": []string{"dump_path"},
-		},
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{"dump_path": map[string]interface{}{"type": "string", "description": "Absolute file path to the memory dump."}}, "required": []string{"dump_path"}},
+	}
+	psListTool := anthropic.ToolDefinition{
+		Name:        "analyze_memory_pslist",
+		Description: "Lists running processes to find malware.",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{"dump_path": map[string]interface{}{"type": "string", "description": "Absolute file path to the memory dump."}}, "required": []string{"dump_path"}},
+	}
+	netScanTool := anthropic.ToolDefinition{
+		Name:        "analyze_memory_netscan",
+		Description: "Lists network connections to find attacker IPs.",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{"dump_path": map[string]interface{}{"type": "string", "description": "Absolute file path to the memory dump."}}, "required": []string{"dump_path"}},
+	}
+
+	memoryAgentTool := anthropic.ToolDefinition{
+		Name:        "hunt_memory_malware",
+		Description: "Triggers the Memory Agent to automatically extract running processes and network connections to find malware.",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{"dump_path": map[string]interface{}{"type": "string", "description": "Absolute file path to the memory dump."}}, "required": []string{"dump_path"}},
+	}
+	diskAgentTool := anthropic.ToolDefinition{
+		Name:        "analyze_disk_timeline",
+		Description: "Triggers the Disk Agent to extract a Plaso timeline and identify suspicious file activity.",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{"image_path": map[string]interface{}{"type": "string", "description": "Absolute file path to the disk image."}, "output_csv": map[string]interface{}{"type": "string", "description": "Absolute path where the timeline CSV should be saved."}}, "required": []string{"image_path", "output_csv"}},
 	}
 
 	messages := []anthropic.Message{
-		anthropic.NewUserTextMessage(fmt.Sprintf("You are LogPoseSIFT, an autonomous DFIR agent. I have a memory dump at: %s\nPlease run the windows.info tool against it and summarize the target system's OS version.", evidencePath)),
+		anthropic.NewUserTextMessage(prompt),
 	}
 
 	fmt.Println("[*] Sending task to Claude...")
 	resp, err := e.AnthropicClient.CreateMessages(context.Background(), anthropic.MessagesRequest{
 		Model:     e.AnthropicModel,
 		Messages:  messages,
-		MaxTokens: 1000,
-		Tools:     []anthropic.ToolDefinition{volatilityTool},
+		MaxTokens: 2000,
+		Tools:     []anthropic.ToolDefinition{winInfoTool, psListTool, netScanTool, memoryAgentTool, diskAgentTool},
 	})
 
 	if err != nil {
@@ -138,16 +151,40 @@ func (e *Engine) runClaude(evidencePath string) error {
 
 	fmt.Printf("\n[*] Claude requested tool: %s\n", toolUse.Name)
 
+	var output string
+	var executionErr error
+
 	var args map[string]interface{}
 	json.Unmarshal(toolUse.Input, &args)
-	dumpPath := args["dump_path"].(string)
-
-	fmt.Printf("[*] Executing Volatility on: %s\n", dumpPath)
-	output, err := wrappers.GetWindowsInfo(dumpPath)
+	switch toolUse.Name {
+	case "analyze_memory_windows_info":
+		dumpPath := args["dump_path"].(string)
+		fmt.Printf("[*] Executing raw Volatility on: %s\n", dumpPath)
+		output, executionErr = wrappers.GetWindowsInfo(dumpPath)
+	case "analyze_memory_pslist":
+		dumpPath := args["dump_path"].(string)
+		fmt.Printf("[*] Executing raw Volatility pslist on: %s\n", dumpPath)
+		output, executionErr = wrappers.GetPSList(dumpPath)
+	case "analyze_memory_netscan":
+		dumpPath := args["dump_path"].(string)
+		fmt.Printf("[*] Executing raw Volatility netscan on: %s\n", dumpPath)
+		output, executionErr = wrappers.GetNetScan(dumpPath)
+	case "hunt_memory_malware":
+		dumpPath := args["dump_path"].(string)
+		fmt.Println("[*] Routing to Memory Agent...")
+		output, executionErr = memory_agent.HuntMalware(dumpPath)
+	case "analyze_disk_timeline":
+		imagePath := args["image_path"].(string)
+		outputCsv := args["output_csv"].(string)
+		fmt.Println("[*] Routing to Disk Agent...")
+		output, executionErr = disk_agent.ExtractAndParseTimeline(imagePath, outputCsv)
+	default:
+		executionErr = fmt.Errorf("unknown tool requested by AI: %s", toolUse.Name)
+	}
 	
 	toolResultContent := output
-	if err != nil {
-		toolResultContent = fmt.Sprintf("Error: %v", err)
+	if executionErr != nil {
+		toolResultContent = fmt.Sprintf("Error: %v", executionErr)
 	}
 
 	messages = append(messages, anthropic.Message{
@@ -172,7 +209,7 @@ func (e *Engine) runClaude(evidencePath string) error {
 	finalResp, err := e.AnthropicClient.CreateMessages(context.Background(), anthropic.MessagesRequest{
 		Model:     e.AnthropicModel,
 		Messages:  messages,
-		MaxTokens: 1000,
+		MaxTokens: 2000,
 	})
 
 	if err != nil {
@@ -186,31 +223,41 @@ func (e *Engine) runClaude(evidencePath string) error {
 }
 
 // ---------------------------------------------------------
-// GEMINI EXECUTION LOGIC
+// GEMINI EXECUTION LOGIC (Merged Raw Tools + Agents)
 // ---------------------------------------------------------
-func (e *Engine) runGemini(evidencePath string) error {
+func (e *Engine) runGemini(prompt string) error {
 	ctx := context.Background()
 
-	volatilityTool := &genai.Tool{
-		FunctionDeclarations: []*genai.FunctionDeclaration{{
-			Name:        "analyze_memory_windows_info",
-			Description: "Extracts basic OS info from a Windows memory dump using Volatility 3.",
-			Parameters: &genai.Schema{
-				Type: genai.TypeObject,
-				Properties: map[string]*genai.Schema{
-					"dump_path": {
-						Type:        genai.TypeString,
-						Description: "Absolute file path to the memory dump.",
-					},
-				},
-				Required: []string{"dump_path"},
-			},
-		}},
+	dumpPathSchema := &genai.Schema{
+		Type: genai.TypeObject,
+		Properties: map[string]*genai.Schema{
+			"dump_path": {Type: genai.TypeString, Description: "Absolute file path to the memory dump."},
+		},
+		Required: []string{"dump_path"},
 	}
-	e.GeminiModel.Tools = []*genai.Tool{volatilityTool}
+
+	diskToolSchema := &genai.Schema{
+		Type: genai.TypeObject,
+		Properties: map[string]*genai.Schema{
+			"image_path": {Type: genai.TypeString, Description: "Absolute file path to the disk image."},
+			"output_csv": {Type: genai.TypeString, Description: "Absolute path where the timeline CSV should be saved."},
+		},
+		Required: []string{"image_path", "output_csv"},
+	}
+
+	// Supply BOTH raw wrappers AND high-level agents to Gemini
+	allTools := &genai.Tool{
+		FunctionDeclarations: []*genai.FunctionDeclaration{
+			{Name: "analyze_memory_windows_info", Description: "Extracts basic OS info from a Windows memory dump using Volatility 3.", Parameters: dumpPathSchema},
+			{Name: "analyze_memory_pslist", Description: "Lists running processes to find malware.", Parameters: dumpPathSchema},
+			{Name: "analyze_memory_netscan", Description: "Lists network connections to find attacker IPs.", Parameters: dumpPathSchema},
+			{Name: "hunt_memory_malware", Description: "Triggers the Memory Agent to extract running processes and network connections to find malware.", Parameters: dumpPathSchema},
+			{Name: "analyze_disk_timeline", Description: "Triggers the Disk Agent to extract a Plaso timeline and identify suspicious file activity.", Parameters: diskToolSchema},
+		},
+	}
+	e.GeminiModel.Tools = []*genai.Tool{allTools}
 
 	session := e.GeminiModel.StartChat()
-	prompt := fmt.Sprintf("You are LogPoseSIFT, an autonomous DFIR agent. I have a memory dump at: %s\nPlease run the analyze_memory_windows_info tool against it and summarize the target system's OS version.", evidencePath)
 
 	fmt.Println("[*] Sending task to Gemini...")
 	resp, err := session.SendMessage(ctx, genai.Text(prompt))
@@ -236,14 +283,39 @@ func (e *Engine) runGemini(evidencePath string) error {
 
 	fmt.Printf("\n[*] Gemini requested tool: %s\n", toolCall.Name)
 
-	dumpPath := toolCall.Args["dump_path"].(string)
+	var output string
+	var executionErr error
 
-	fmt.Printf("[*] Executing Volatility on: %s\n", dumpPath)
-	output, err := wrappers.GetWindowsInfo(dumpPath)
+	// Route to the appropriate wrapper OR agent based on Gemini's choice
+	switch toolCall.Name {
+	case "analyze_memory_windows_info":
+		dumpPath := toolCall.Args["dump_path"].(string)
+		fmt.Printf("[*] Executing raw Volatility on: %s\n", dumpPath)
+		output, executionErr = wrappers.GetWindowsInfo(dumpPath)
+	case "analyze_memory_pslist":
+		dumpPath := toolCall.Args["dump_path"].(string)
+		fmt.Printf("[*] Executing raw Volatility pslist on: %s\n", dumpPath)
+		output, executionErr = wrappers.GetPSList(dumpPath)
+	case "analyze_memory_netscan":
+		dumpPath := toolCall.Args["dump_path"].(string)
+		fmt.Printf("[*] Executing raw Volatility netscan on: %s\n", dumpPath)
+		output, executionErr = wrappers.GetNetScan(dumpPath)
+	case "hunt_memory_malware":
+		dumpPath := toolCall.Args["dump_path"].(string)
+		fmt.Println("[*] Routing to Memory Agent...")
+		output, executionErr = memory_agent.HuntMalware(dumpPath)
+	case "analyze_disk_timeline":
+		imagePath := toolCall.Args["image_path"].(string)
+		outputCsv := toolCall.Args["output_csv"].(string)
+		fmt.Println("[*] Routing to Disk Agent...")
+		output, executionErr = disk_agent.ExtractAndParseTimeline(imagePath, outputCsv)
+	default:
+		executionErr = fmt.Errorf("unknown tool requested by AI: %s", toolCall.Name)
+	}
 	
 	toolResultContent := output
-	if err != nil {
-		toolResultContent = fmt.Sprintf("Error: %v", err)
+	if executionErr != nil {
+		toolResultContent = fmt.Sprintf("Error: %v", executionErr)
 	}
 
 	finalResp, err := session.SendMessage(ctx, genai.FunctionResponse{

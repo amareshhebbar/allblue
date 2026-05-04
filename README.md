@@ -54,7 +54,7 @@ LogPoseSIFT is designed to run natively within the SANS SIFT Workstation environ
 To get started, clone the repository into your SIFT workspace:
 
 ```bash
-git clone [https://github.com/amareshhebbar/LogPoseSIFT.git](https://github.com/amareshhebbar/LogPoseSIFT.git)
+git clone https://github.com/amareshhebbar/LogPoseSIFT
 cd logposesift
 ```
 
@@ -74,7 +74,8 @@ go build -o logposesift-mcp cmd/sift-mcp/main.go
 Provide your API credentials and execute the orchestrator against a target evidence file:
 
 ```bash
-export API_KEY="your_api_key_here"
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
 ./logposesift-mcp --target /path/to/evidence.raw --mode triage
 ```
 
