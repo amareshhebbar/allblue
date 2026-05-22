@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// ToolFindings accumulates real output from tool calls.
 type ToolFindings struct {
 	PScanOutput   string
 	NetScanOutput string
@@ -29,8 +28,6 @@ func (f *ToolFindings) Record(toolName, output string) {
 	}
 }
 
-// PreTriage runs psscan and netscan BEFORE the AI loop.
-// Returns a confirmed fact sheet embedded in the initial prompt.
 func PreTriage(evidencePath string) string {
 	var sb strings.Builder
 	sb.WriteString("=== PRE-TRIAGE: CONFIRMED TOOL OUTPUT — MUST USE IN REPORT ===\n\n")
@@ -59,8 +56,6 @@ func PreTriage(evidencePath string) string {
 		fmt.Println("empty")
 		sb.WriteString("psscan returned no processes.\n\n")
 	}
-
-	// netscan
 	fmt.Print("[*] Pre-triage: running netscan... ")
 	netscanOut := runVol(evidencePath, "windows.netscan")
 	if len(netscanOut) > 200 {
@@ -84,8 +79,6 @@ func PreTriage(evidencePath string) string {
 		fmt.Println("empty")
 		sb.WriteString("netscan returned no connections.\n\n")
 	}
-
-	// windows.info
 	fmt.Print("[*] Pre-triage: running windows.info... ")
 	infoOut := runVol(evidencePath, "windows.info")
 	if len(infoOut) > 100 {
@@ -144,8 +137,6 @@ func extractSuspiciousProcesses(output string) []string {
 		if len(fields) < 2 {
 			continue
 		}
-		// psscan format: PID PPID ImageFileName Offset ...
-		// or: ImageFileName PID PPID Offset ...
 		var procName, pid, ppid string
 		if isNumeric(fields[0]) {
 			pid = fields[0]
@@ -197,7 +188,6 @@ func extractC2Connections(output string) []string {
 				}
 			}
 		}
-		// CLOSED/ESTABLISHED to non-local IPs
 		if (strings.Contains(line, "CLOSED") || strings.Contains(line, "ESTABLISHED")) &&
 			!strings.Contains(line, "0.0.0.0") && !strings.Contains(line, "127.0.0") {
 			trimmed := strings.TrimSpace(line)

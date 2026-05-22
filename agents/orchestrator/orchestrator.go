@@ -63,17 +63,14 @@ func (e *Engine) RunTriage(evidencePath string, evidenceType string) {
 	fmt.Printf("\n[*] LogPoseSIFT AI Orchestrator -- Session %s\n", sessionID)
 	fmt.Printf("[*] Evidence: %s (type: %s)\n\n", evidencePath, evidenceType)
  
-	// ── Run key tools BEFORE the AI loop ─────────────────────────────────────
-	// This prevents Claude from ignoring real tool output in its final report.
 	fmt.Println("[*] Running pre-triage to gather confirmed facts...")
 	factSheet := PreTriage(evidencePath)
 	fmt.Printf("[*] Pre-triage complete (%d chars of confirmed findings)\n\n", len(factSheet))
  
-	// ── Build prompt with confirmed facts already embedded ────────────────────
 	prompt := fmt.Sprintf(
 		"You are LogPoseSIFT, an autonomous DFIR triage agent.\n"+
 			"Evidence: %s | Type: %s\n\n"+
-			"%s\n"+ // ← factSheet injected here
+			"%s\n"+ 
 			"INSTRUCTIONS:\n"+
 			"1. Use the confirmed findings above as your primary evidence base.\n"+
 			"2. Run additional tools to gather more evidence (malfind, cmdline, dlllist, correlate).\n"+
@@ -103,7 +100,6 @@ func (e *Engine) RunTriage(evidencePath string, evidenceType string) {
 	}
 }
 
-// ── Tool definitions ──────────────────────────────────────────
 
 func allToolDefs() []anthropic.ToolDefinition {
 	dumpSchema := map[string]interface{}{
@@ -178,12 +174,11 @@ func allToolDefs() []anthropic.ToolDefinition {
 	}
 }
 
-// ── Claude agentic loop ───────────────────────────────────────
 
 func (e *Engine) runClaude(prompt, evidencePath, evidenceType string) error {
 	messages := []anthropic.Message{anthropic.NewUserTextMessage(prompt)}
 	tools := allToolDefs()
-	findings := NewToolFindings() // ← tracks real output
+	findings := NewToolFindings()
  
 	const maxIterations = 10
 	for iteration := 0; iteration < maxIterations; iteration++ {
@@ -236,7 +231,7 @@ func (e *Engine) runClaude(prompt, evidencePath, evidenceType string) error {
 				fmt.Printf("    [!] Error: %v\n", execErr)
 			} else {
 				fmt.Printf("    [ok] %d chars returned\n", len(output))
-				findings.Record(toolUse.Name, output) // ← record every real output
+				findings.Record(toolUse.Name, output) 
 			}
  
 			resultMap := map[string]interface{}{
@@ -251,7 +246,6 @@ func (e *Engine) runClaude(prompt, evidencePath, evidenceType string) error {
 		}
  
 		if !anyToolCalled {
-    // Claude stopped calling tools — check if it wrote a text response
     for _, block := range resp.Content {
         if block.Type == anthropic.MessagesContentTypeText && block.Text != nil {
             fmt.Printf("\n================================ FINAL REPORT ================================\n")
@@ -260,7 +254,6 @@ func (e *Engine) runClaude(prompt, evidencePath, evidenceType string) error {
             return nil
         }
     }
-    // No text either — send a nudge
     nudge := "Based on the pre-triage data and tools you have run, please now write your complete DFIR triage report. Quote actual process names, PIDs, and IPs from the confirmed findings."
     messages = append(messages, anthropic.Message{
         Role: anthropic.RoleUser,
@@ -281,7 +274,6 @@ func (e *Engine) runClaude(prompt, evidencePath, evidenceType string) error {
 	return fmt.Errorf("reached max iterations (%d) without end_turn", maxIterations)
 }
  
-// Append this to agents/orchestrator/findings_extractor.go
 
 func (f *ToolFindings) BuildSummary() string {
 	var sb strings.Builder
@@ -314,7 +306,6 @@ func (f *ToolFindings) BuildSummary() string {
 	sb.WriteString("=== USE THE ABOVE IN YOUR FINAL REPORT ===\n")
 	return sb.String()
 }
-// ── Gemini agentic loop ───────────────────────────────────────
 
 func (e *Engine) runGemini(prompt, evidencePath, evidenceType string) error {
 	ctx := context.Background()
@@ -356,9 +347,6 @@ func (e *Engine) runGemini(prompt, evidencePath, evidenceType string) error {
 
 	session := e.GeminiModel.StartChat()
 	const maxIterations = 10
-
-	// FIX 1: declare currentMsg as genai.Part interface, not genai.Text
-	// This allows reassignment to genai.FunctionResponse later in the loop.
 	var currentMsg genai.Part = genai.Text(prompt)
 
 	for iteration := 0; iteration < maxIterations; iteration++ {
@@ -403,8 +391,6 @@ func (e *Engine) runGemini(prompt, evidencePath, evidenceType string) error {
 		if execErr != nil {
 			resultContent = fmt.Sprintf("ERROR: %v", execErr)
 		}
-
-		// FIX 1 continued: assign FunctionResponse to genai.Part variable -- now works
 		currentMsg = genai.FunctionResponse{
 			Name:     tc.Name,
 			Response: map[string]any{"terminal_output": resultContent},
@@ -413,7 +399,6 @@ func (e *Engine) runGemini(prompt, evidencePath, evidenceType string) error {
 	return fmt.Errorf("Gemini reached max iterations (%d)", maxIterations)
 }
 
-// ── Tool dispatcher ───────────────────────────────────────────
 
 func (e *Engine) dispatchTool(name string, args map[string]interface{}, evidenceType string) (string, error) {
 	str := func(key string) string {
@@ -426,12 +411,8 @@ func (e *Engine) dispatchTool(name string, args map[string]interface{}, evidence
 	switch name {
 	case "analyze_memory_windows_info":
 		return wrappers.GetWindowsInfo(str("dump_path"))
-
-	// FIX 2: GetPSList does not exist -- use RunRegistryTool
 	case "analyze_memory_pslist":
 		return wrappers.RunRegistryTool("vol_windows_pslist", str("dump_path"))
-
-	// FIX 3: GetNetScan does not exist -- use RunRegistryTool
 	case "analyze_memory_netscan":
 		return wrappers.RunRegistryTool("vol_windows_netscan", str("dump_path"))
 
@@ -498,7 +479,6 @@ func (e *Engine) dispatchTool(name string, args map[string]interface{}, evidence
 	}
 }
 
-// ── Correlator runner ─────────────────────────────────────────
 
 func runCorrelation(memOutput, diskOutput string) (string, error) {
 	rec, start := logger.NewRecord(
@@ -534,7 +514,6 @@ func runCorrelation(memOutput, diskOutput string) (string, error) {
 		return "", err
 	}
 
-	// FIX 4: HighCount is inside Summary, not at report top level
 	confidence := "INFERRED"
 	if report.Summary.HighCount > 0 {
 		confidence = "CONFIRMED"
@@ -546,7 +525,6 @@ func runCorrelation(memOutput, diskOutput string) (string, error) {
 	return string(b), nil
 }
 
-// ── String helpers (no stdlib strings import needed) ──────────
 
 func splitLines(s string) []string {
 	var lines []string

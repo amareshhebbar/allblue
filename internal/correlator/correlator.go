@@ -6,50 +6,43 @@ import (
 	"time"
 )
 
-// CorrelationStatus tags each finding after cross-referencing.
 type CorrelationStatus string
 
 const (
-	StatusConfirmed    CorrelationStatus = "CONFIRMED"    // memory + disk agree
-	StatusSuspicious   CorrelationStatus = "SUSPICIOUS"   // in memory, no disk trace (fileless)
-	StatusContradicted CorrelationStatus = "CONTRADICTED" // timestamps disagree (timestomping)
-	StatusOrphaned     CorrelationStatus = "ORPHANED"     // one source only
+	StatusConfirmed    CorrelationStatus = "CONFIRMED"   
+	StatusSuspicious   CorrelationStatus = "SUSPICIOUS"   
+	StatusContradicted CorrelationStatus = "CONTRADICTED" 
+	StatusOrphaned     CorrelationStatus = "ORPHANED"     
 )
 
-// MemoryFinding is one artefact from the memory agent.
-// Type values: process, network, malfind, dll
 type MemoryFinding struct {
 	Type        string
-	Name        string // process name, IP:port, or module name
+	Name        string 
 	PID         int
 	PPID        int
 	CommandLine string
-	Timestamp   string // process create time, RFC3339 if available
-	Details     string // raw line from tool output
+	Timestamp   string 
+	Details     string 
 }
 
-// DiskFinding is one artefact from the disk agent.
-// Type values: timeline, registry, file, prefetch
 type DiskFinding struct {
 	Type      string
-	Path      string // filesystem or registry path
-	Timestamp string // MACB timestamp, RFC3339
+	Path      string 
+	Timestamp string 
 	Size      int64
 	Hash      string
-	Details   string // raw line from tool output
+	Details   string 
 }
 
-// CorrelationResult is one matched or unmatched finding pair.
 type CorrelationResult struct {
 	Status      CorrelationStatus `json:"status"`
 	MemoryRef   *MemoryFinding    `json:"memory_ref,omitempty"`
 	DiskRef     *DiskFinding      `json:"disk_ref,omitempty"`
 	Explanation string            `json:"explanation"`
-	Severity    string            `json:"severity"` // high, medium, low
+	Severity    string            `json:"severity"`
 	IOC         string            `json:"ioc,omitempty"`
 }
 
-// AuditSummary holds aggregate counts across all results.
 type AuditSummary struct {
 	TotalMemory  int `json:"total_memory_findings"`
 	TotalDisk    int `json:"total_disk_findings"`
@@ -60,7 +53,6 @@ type AuditSummary struct {
 	HighCount    int `json:"high_severity_count"`
 }
 
-// CorrelationReport is the full output returned to the orchestrator.
 type CorrelationReport struct {
 	GeneratedAt  string              `json:"generated_at"`
 	MemorySource string              `json:"memory_source"`
@@ -70,18 +62,15 @@ type CorrelationReport struct {
 	Narrative    string              `json:"narrative"`
 }
 
-// Engine cross-references memory findings against disk findings.
 type Engine struct {
 	MemorySource string
 	DiskSource   string
 }
 
-// New creates a correlator engine.
 func New(memorySource, diskSource string) *Engine {
 	return &Engine{MemorySource: memorySource, DiskSource: diskSource}
 }
 
-// Correlate runs the full cross-reference and returns a CorrelationReport.
 func (e *Engine) Correlate(memFindings []MemoryFinding, diskFindings []DiskFinding) CorrelationReport {
 	report := CorrelationReport{
 		GeneratedAt:  time.Now().UTC().Format(time.RFC3339),
@@ -95,8 +84,6 @@ func (e *Engine) Correlate(memFindings []MemoryFinding, diskFindings []DiskFindi
 		result := e.correlateOne(memFindings[i], diskFindings, diskMatched)
 		report.Results = append(report.Results, result)
 	}
-
-	// Orphan any disk findings that were not matched by a memory finding
 	for i, df := range diskFindings {
 		if !diskMatched[i] {
 			dfCopy := df
@@ -140,7 +127,6 @@ func (e *Engine) correlateOne(mf MemoryFinding, diskFindings []DiskFinding, disk
 				return result
 			}
 		}
-		// No disk match = fileless malware candidate
 		result.Status = StatusSuspicious
 		result.Severity = "high"
 		result.IOC = fmt.Sprintf("fileless_candidate:%s:PID%d", mf.Name, mf.PID)
@@ -179,7 +165,6 @@ func (e *Engine) correlateOne(mf MemoryFinding, diskFindings []DiskFinding, disk
 	return result
 }
 
-// matchProcessToDisk returns true if the process name appears in the disk path.
 func matchProcessToDisk(mf MemoryFinding, df DiskFinding) bool {
 	name := strings.ToLower(mf.Name)
 	path := strings.ToLower(df.Path)
@@ -198,8 +183,6 @@ func matchProcessToDisk(mf MemoryFinding, df DiskFinding) bool {
 	return false
 }
 
-// timestampsClose returns true if two RFC3339 timestamps are within 24 hours.
-// A gap greater than 24h on the same artefact is a timestomping signal.
 func timestampsClose(ts1, ts2 string) bool {
 	t1, err1 := time.Parse(time.RFC3339, ts1)
 	t2, err2 := time.Parse(time.RFC3339, ts2)
@@ -267,7 +250,6 @@ func (e *Engine) buildNarrative(s AuditSummary) string {
 	return strings.Join(parts, " ")
 }
 
-// ParsePSList converts raw pslist/pstree output into MemoryFindings.
 func ParsePSList(raw string) []MemoryFinding {
 	var findings []MemoryFinding
 	for _, line := range strings.Split(raw, "\n") {
@@ -292,8 +274,6 @@ func ParsePSList(raw string) []MemoryFinding {
 	return findings
 }
 
-// ParseNetScan converts raw netscan output into MemoryFindings.
-// Column order: Offset Proto LocalAddr ForeignAddr State PID Owner
 func ParseNetScan(raw string) []MemoryFinding {
 	var findings []MemoryFinding
 	for _, line := range strings.Split(raw, "\n") {
@@ -310,14 +290,13 @@ func ParseNetScan(raw string) []MemoryFinding {
 		}
 		findings = append(findings, MemoryFinding{
 			Type:    "network",
-			Name:    fields[3], // ForeignAddr
+			Name:    fields[3], 
 			Details: line,
 		})
 	}
 	return findings
 }
 
-// ParseMalfind converts raw malfind output into MemoryFindings.
 func ParseMalfind(raw string) []MemoryFinding {
 	var findings []MemoryFinding
 	var current MemoryFinding
