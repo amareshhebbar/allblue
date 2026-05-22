@@ -1,66 +1,218 @@
 package registry
 
-import "fmt"
-
-// SiftTool represents a strictly typed, whitelisted command allowed on the system.
 type SiftTool struct {
 	Name        string
 	Description string
 	Binary      string
 	FixedArgs   []string
-	TargetParam string // The name of the parameter the AI must provide (e.g., "target_file")
+	TargetParam string
 }
 
-// GetToolArsenal returns our massive list of allowed DFIR tools
 func GetToolArsenal() map[string]SiftTool {
 	return map[string]SiftTool{
-		// ==========================================
-		// VOLATILITY 3 (MEMORY FORENSICS)
-		// ==========================================
-		"vol_windows_info":      {Name: "vol_windows_info", Description: "Extracts OS info from memory.", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.info"}, TargetParam: "dump_path"},
-		"vol_windows_pslist":    {Name: "vol_windows_pslist", Description: "Lists running processes.", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.pslist"}, TargetParam: "dump_path"},
-		"vol_windows_pstree":    {Name: "vol_windows_pstree", Description: "Shows parent/child process relationships.", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.pstree"}, TargetParam: "dump_path"},
-		"vol_windows_netscan":   {Name: "vol_windows_netscan", Description: "Scans for network connections and C2 IPs.", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.netscan"}, TargetParam: "dump_path"},
-		"vol_windows_malfind":   {Name: "vol_windows_malfind", Description: "Finds hidden/injected code (malware).", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.malfind"}, TargetParam: "dump_path"},
-		"vol_windows_cmdline":   {Name: "vol_windows_cmdline", Description: "Extracts command line arguments of processes.", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.cmdline"}, TargetParam: "dump_path"},
-		"vol_windows_dlllist":   {Name: "vol_windows_dlllist", Description: "Lists loaded DLLs for processes.", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.dlllist"}, TargetParam: "dump_path"},
-		"vol_windows_filescan":  {Name: "vol_windows_filescan", Description: "Scans for file objects in memory.", Binary: "vol", FixedArgs: []string{"-f", "{TARGET}", "windows.filescan"}, TargetParam: "dump_path"},
-		
-		// ==========================================
-		// SLEUTHKIT (DISK/FILE SYSTEM FORENSICS)
-		// ==========================================
-		"tsk_fls":    {Name: "tsk_fls", Description: "Lists files/directories in a disk image.", Binary: "fls", FixedArgs: []string{"-r", "{TARGET}"}, TargetParam: "image_path"},
-		"tsk_ils":    {Name: "tsk_ils", Description: "Lists inode information.", Binary: "ils", FixedArgs: []string{"{TARGET}"}, TargetParam: "image_path"},
-		"tsk_fsstat": {Name: "tsk_fsstat", Description: "Displays file system statistical info.", Binary: "fsstat", FixedArgs: []string{"{TARGET}"}, TargetParam: "image_path"},
-		"tsk_mmls":   {Name: "tsk_mmls", Description: "Displays partition layout of a volume.", Binary: "mmls", FixedArgs: []string{"{TARGET}"}, TargetParam: "image_path"},
-		
-		// ==========================================
-		// WINDOWS ARTIFACTS (REGISTRY, EVTX, PREFETCH)
-		// ==========================================
-		"parse_evtx":         {Name: "parse_evtx", Description: "Dumps Windows Event Logs (EVTX) to text.", Binary: "evtx_dump", FixedArgs: []string{"{TARGET}"}, TargetParam: "evtx_file"},
-		"rip_sam":            {Name: "rip_sam", Description: "Parses SAM registry hive for users.", Binary: "rip.pl", FixedArgs: []string{"-r", "{TARGET}", "-f", "sam"}, TargetParam: "hive_file"},
-		"rip_software":       {Name: "rip_software", Description: "Parses SOFTWARE registry hive.", Binary: "rip.pl", FixedArgs: []string{"-r", "{TARGET}", "-f", "software"}, TargetParam: "hive_file"},
-		"rip_system":         {Name: "rip_system", Description: "Parses SYSTEM registry hive.", Binary: "rip.pl", FixedArgs: []string{"-r", "{TARGET}", "-f", "system"}, TargetParam: "hive_file"},
-		"parse_amcache":      {Name: "parse_amcache", Description: "Parses Amcache.hve for program execution.", Binary: "amcacheparser", FixedArgs: []string{"-f", "{TARGET}", "--csv", "/tmp/"}, TargetParam: "amcache_file"},
-		
-		// ==========================================
-		// TIMELINE & PLASO
-		// ==========================================
-		"plaso_log2timeline": {Name: "plaso_log2timeline", Description: "Extracts all events from disk into a database.", Binary: "log2timeline.py", FixedArgs: []string{"--quiet", "/tmp/timeline.plaso", "{TARGET}"}, TargetParam: "image_path"},
-		"plaso_psort":        {Name: "plaso_psort", Description: "Filters Plaso timeline into readable text.", Binary: "psort.py", FixedArgs: []string{"-o", "dynamic", "{TARGET}"}, TargetParam: "plaso_file"},
 
-		// ==========================================
-		// NETWORK FORENSICS
-		// ==========================================
-		"pcap_tshark_dns":  {Name: "pcap_tshark_dns", Description: "Extracts DNS queries from a PCAP file.", Binary: "tshark", FixedArgs: []string{"-r", "{TARGET}", "-T", "fields", "-e", "dns.qry.name", "-Y", "dns.flags.response eq 0"}, TargetParam: "pcap_file"},
-		"pcap_tshark_http": {Name: "pcap_tshark_http", Description: "Extracts HTTP requests from a PCAP.", Binary: "tshark", FixedArgs: []string{"-r", "{TARGET}", "-Y", "http.request"}, TargetParam: "pcap_file"},
-		
-		// ==========================================
+		// ──────────────────────────────────────────────────────
+		// VOLATILITY 3 — Memory Forensics
+		// ──────────────────────────────────────────────────────
+		"vol_windows_info": {
+			Name: "vol_windows_info", Binary: "vol",
+			Description: "Extracts OS version, build, and kernel base address from memory.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.info"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_pslist": {
+			Name: "vol_windows_pslist", Binary: "vol",
+			Description: "Lists all running processes with PID, PPID, and start time.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.pslist"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_pstree": {
+			Name: "vol_windows_pstree", Binary: "vol",
+			Description: "Shows parent/child process tree — reveals orphaned and injected processes.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.pstree"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_netscan": {
+			Name: "vol_windows_netscan", Binary: "vol",
+			Description: "Lists active and recently closed network connections. Find C2 IPs here.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.netscan"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_malfind": {
+			Name: "vol_windows_malfind", Binary: "vol",
+			Description: "Detects code injection, process hollowing, and shellcode (MZ headers in RWX memory).",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.malfind"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_cmdline": {
+			Name: "vol_windows_cmdline", Binary: "vol",
+			Description: "Extracts full command line of every process. Reveals attacker tools and encoded payloads.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.cmdline"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_dlllist": {
+			Name: "vol_windows_dlllist", Binary: "vol",
+			Description: "Lists all loaded DLLs. Flags unsigned DLLs from temp/appdata directories.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.dlllist"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_filescan": {
+			Name: "vol_windows_filescan", Binary: "vol",
+			Description: "Scans memory for FILE_OBJECT references — finds files open at time of capture.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.filescan"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_handles": {
+			Name: "vol_windows_handles", Binary: "vol",
+			Description: "Lists open handles (files, registry keys, mutants) per process.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.handles"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_svcscan": {
+			Name: "vol_windows_svcscan", Binary: "vol",
+			Description: "Scans for Windows services — finds rogue/persistence services.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.svcscan"},
+			TargetParam: "dump_path",
+		},
+
+		// ──────────────────────────────────────────────────────
+		// SLEUTH KIT — Disk / Filesystem Forensics
+		// ──────────────────────────────────────────────────────
+		"tsk_fls": {
+			Name: "tsk_fls", Binary: "fls",
+			Description: "Lists all files and directories in a disk image (recursive).",
+			FixedArgs:   []string{"-r", "{TARGET}"},
+			TargetParam: "image_path",
+		},
+		"tsk_ils": {
+			Name: "tsk_ils", Binary: "ils",
+			Description: "Lists inode information — finds deleted files with recoverable inodes.",
+			FixedArgs:   []string{"{TARGET}"},
+			TargetParam: "image_path",
+		},
+		"tsk_fsstat": {
+			Name: "tsk_fsstat", Binary: "fsstat",
+			Description: "Displays filesystem metadata (type, cluster size, MFT offset).",
+			FixedArgs:   []string{"{TARGET}"},
+			TargetParam: "image_path",
+		},
+		"tsk_mmls": {
+			Name: "tsk_mmls", Binary: "mmls",
+			Description: "Shows partition layout with sector offsets — required before running other TSK tools.",
+			FixedArgs:   []string{"{TARGET}"},
+			TargetParam: "image_path",
+		},
+		"tsk_fls_deleted": {
+			Name: "tsk_fls_deleted", Binary: "fls",
+			Description: "Lists ONLY deleted files — used when attacker has cleaned up executables.",
+			FixedArgs:   []string{"-r", "-d", "{TARGET}"},
+			TargetParam: "image_path",
+		},
+
+		// ──────────────────────────────────────────────────────
+		// WINDOWS ARTIFACTS — Registry, Event Logs, Prefetch
+		// ──────────────────────────────────────────────────────
+		"rip_sam": {
+			Name: "rip_sam", Binary: "rip.pl",
+			Description: "Parses SAM hive — extracts local user accounts and last login times.",
+			FixedArgs:   []string{"-r", "{TARGET}", "-f", "sam"},
+			TargetParam: "hive_file",
+		},
+		"rip_software": {
+			Name: "rip_software", Binary: "rip.pl",
+			Description: "Parses SOFTWARE hive — installed programs, run keys, shimcache.",
+			FixedArgs:   []string{"-r", "{TARGET}", "-f", "software"},
+			TargetParam: "hive_file",
+		},
+		"rip_system": {
+			Name: "rip_system", Binary: "rip.pl",
+			Description: "Parses SYSTEM hive — services, network config, timezone, USB history.",
+			FixedArgs:   []string{"-r", "{TARGET}", "-f", "system"},
+			TargetParam: "hive_file",
+		},
+		"rip_ntuser": {
+			Name: "rip_ntuser", Binary: "rip.pl",
+			Description: "Parses NTUSER.DAT — user activity, recent docs, typed URLs, run MRU.",
+			FixedArgs:   []string{"-r", "{TARGET}", "-f", "ntuser"},
+			TargetParam: "hive_file",
+		},
+		"parse_evtx": {
+			Name: "parse_evtx", Binary: "evtx_dump",
+			Description: "Dumps Windows Event Logs to JSON — find 4624/4625 logins, 7045 service installs.",
+			FixedArgs:   []string{"{TARGET}"},
+			TargetParam: "evtx_file",
+		},
+		"parse_amcache": {
+			Name: "parse_amcache", Binary: "amcacheparser",
+			Description: "Parses Amcache.hve — execution evidence for files that no longer exist on disk.",
+			FixedArgs:   []string{"-f", "{TARGET}", "--csv", "/tmp/"},
+			TargetParam: "amcache_file",
+		},
+
+		// ──────────────────────────────────────────────────────
+		// TIMELINE — Plaso / log2timeline
+		// ──────────────────────────────────────────────────────
+		"plaso_log2timeline": {
+			Name: "plaso_log2timeline", Binary: "log2timeline.py",
+			Description: "Builds a super-timeline from all artefact sources in the disk image.",
+			FixedArgs:   []string{"--quiet", "/tmp/timeline.plaso", "{TARGET}"},
+			TargetParam: "image_path",
+		},
+		"plaso_psort": {
+			Name: "plaso_psort", Binary: "psort.py",
+			Description: "Filters and exports Plaso storage to human-readable CSV/JSON.",
+			FixedArgs:   []string{"-o", "dynamic", "{TARGET}"},
+			TargetParam: "plaso_file",
+		},
+
+		// ──────────────────────────────────────────────────────
+		// NETWORK FORENSICS — tshark / pcap analysis
+		// ──────────────────────────────────────────────────────
+		"pcap_tshark_dns": {
+			Name: "pcap_tshark_dns", Binary: "tshark",
+			Description: "Extracts DNS query names from a PCAP — reveals C2 domain beaconing.",
+			FixedArgs:   []string{"-r", "{TARGET}", "-T", "fields", "-e", "dns.qry.name", "-Y", "dns.flags.response eq 0"},
+			TargetParam: "pcap_file",
+		},
+		"pcap_tshark_http": {
+			Name: "pcap_tshark_http", Binary: "tshark",
+			Description: "Extracts HTTP requests (method, host, URI) from a PCAP.",
+			FixedArgs:   []string{"-r", "{TARGET}", "-Y", "http.request", "-T", "fields", "-e", "http.request.method", "-e", "http.host", "-e", "http.request.uri"},
+			TargetParam: "pcap_file",
+		},
+		"pcap_tshark_streams": {
+			Name: "pcap_tshark_streams", Binary: "tshark",
+			Description: "Lists all TCP conversations with byte counts — find large exfiltration streams.",
+			FixedArgs:   []string{"-r", "{TARGET}", "-q", "-z", "conv,tcp"},
+			TargetParam: "pcap_file",
+		},
+
+		// ──────────────────────────────────────────────────────
 		// MALWARE & STATIC ANALYSIS
-		// ==========================================
-		"analyze_strings": {Name: "analyze_strings", Description: "Extracts human-readable strings from malware.", Binary: "strings", FixedArgs: []string{"-a", "{TARGET}"}, TargetParam: "file_path"},
-		"analyze_clamav":  {Name: "analyze_clamav", Description: "Scans a file with ClamAV antivirus.", Binary: "clamscan", FixedArgs: []string{"{TARGET}"}, TargetParam: "file_path"},
-		"analyze_pescan":  {Name: "analyze_pescan", Description: "Scans Windows PE headers for anomalies.", Binary: "pescan", FixedArgs: []string{"{TARGET}"}, TargetParam: "file_path"},
-		"analyze_exif":    {Name: "analyze_exif", Description: "Extracts metadata from files/images.", Binary: "exiftool", FixedArgs: []string{"{TARGET}"}, TargetParam: "file_path"},
+		// ──────────────────────────────────────────────────────
+		"analyze_strings": {
+			Name: "analyze_strings", Binary: "strings",
+			Description: "Extracts printable strings from a binary — find URLs, IPs, registry keys, and C2 config.",
+			FixedArgs:   []string{"-a", "-n", "6", "{TARGET}"},
+			TargetParam: "file_path",
+		},
+		"analyze_clamav": {
+			Name: "analyze_clamav", Binary: "clamscan",
+			Description: "Scans a file or directory with ClamAV signatures.",
+			FixedArgs:   []string{"--no-summary", "{TARGET}"},
+			TargetParam: "file_path",
+		},
+		"analyze_exif": {
+			Name: "analyze_exif", Binary: "exiftool",
+			Description: "Extracts metadata from files — reveals author, GPS, creation timestamps.",
+			FixedArgs:   []string{"-a", "-u", "{TARGET}"},
+			TargetParam: "file_path",
+		},
+		"analyze_file_type": {
+			Name: "analyze_file_type", Binary: "file",
+			Description: "Identifies true file type by magic bytes — catches executables renamed as .txt.",
+			FixedArgs:   []string{"-b", "{TARGET}"},
+			TargetParam: "file_path",
+		},
 	}
 }

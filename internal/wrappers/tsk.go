@@ -11,8 +11,6 @@ import (
 )
 
 
-// ── fls ──────────────────────────────────────────────────────
-
 type FlsInput struct {
 	ImagePath   string `json:"image_path"`   
 	Inode       string `json:"inode,omitempty"` 
@@ -23,7 +21,6 @@ type FlsInput struct {
 	TimeoutSecs int    `json:"timeout_secs,omitempty"`
 }
 
-// FlsEntry is one parsed row from fls output.
 type FlsEntry struct {
 	EntryType  string `json:"entry_type"`   
 	Inode      string `json:"inode"`
@@ -33,7 +30,6 @@ type FlsEntry struct {
 	Allocated  bool   `json:"allocated"`
 }
 
-// MACBTimes holds Modified/Accessed/Changed/Born timestamps
 type MACBTimes struct {
 	Modified string `json:"modified,omitempty"`
 	Accessed string `json:"accessed,omitempty"`
@@ -101,7 +97,6 @@ func buildFlsArgs(input FlsInput) []string {
 	if input.Deleted {
 		args = append(args, "-d")
 	}
-	// Always emit bodyfile format so we can parse timestamps cleanly
 	args = append(args, "-m", "/")
 	if input.OffsetBytes > 0 {
 		args = append(args, "-o", strconv.FormatInt(input.OffsetBytes, 10))
@@ -232,7 +227,7 @@ func parseMactimeOutput(raw string) []TimelineEntry {
 	lines := strings.Split(raw, "\n")
 	for i, line := range lines {
 		if i == 0 || line == "" {
-			continue // skip header
+			continue 
 		}
 		cols := strings.SplitN(line, ",", 8)
 		if len(cols) < 8 {

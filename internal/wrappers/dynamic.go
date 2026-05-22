@@ -3,35 +3,104 @@ package wrappers
 import (
 	"fmt"
 	"strings"
+	"time"
+
 	"github.com/gvamaresh/logposesift/internal/registry"
 )
 
-// ExecuteDynamicTool safely runs a tool from the registry.
-func ExecuteDynamicTool(toolName string, targetPath string) (string, error) {
-	tools := registry.GetToolArsenal()
-	
-	tool, exists := tools[toolName]
-	if !exists {
-		return "", fmt.Errorf("SECURITY BLOCK: Tool '%s' is not in the approved SIFT registry", toolName)
+func RunRegistryTool(toolKey string, targetValue string) (string, error) {
+	arsenal := registry.GetToolArsenal()
+	tool, ok := arsenal[toolKey]
+	if !ok {
+		return "", fmt.Errorf("tool %q not found in registry; check internal/registry/sift_tools.go", toolKey)
 	}
+	if targetValue == "" {
+		return "", fmt.Errorf("tool %q requires a target value for param %q", toolKey, tool.TargetParam)
+	}
+	if containsShellMeta(targetValue) {
+		return "", fmt.Errorf("target value for tool %q contains disallowed shell metacharacters", toolKey)
+	}
+	args := substituteTarget(tool.FixedArgs, targetValue)
+	timeout := toolTimeout(toolKey)
 
-	// Prepare the arguments safely
-	var finalArgs []string
-	for _, arg := range tool.FixedArgs {
-		if arg == "{TARGET}" {
-			finalArgs = append(finalArgs, targetPath)
-		} else {
-			finalArgs = append(finalArgs, arg)
+	output, err := SafeExec(tool.Binary, args, timeout)
+	if err != nil {
+		return "", fmt.Errorf("[%s] %v", toolKey, err)
+	}
+	return output, nil
+}
+
+func RunRegistryToolMultiTarget(toolKey string, params map[string]string) (string, error) {
+	arsenal := registry.GetToolArsenal()
+	tool, ok := arsenal[toolKey]
+	if !ok {
+		return "", fmt.Errorf("tool %q not found in registry", toolKey)
+	}
+	for k, v := range params {
+		if containsShellMeta(v) {
+			return "", fmt.Errorf("param %q for tool %q contains disallowed shell metacharacters", k, toolKey)
 		}
 	}
 
-	fmt.Printf("[*] Security Check Passed: Executing %s %s\n", tool.Binary, strings.Join(finalArgs, " "))
-	
-	// Use your existing RunCommand executor (with a generous 10-minute timeout for heavy tools)
-	output, err := RunCommand(10, tool.Binary, finalArgs...)
-	if err != nil {
-		return "", fmt.Errorf("tool execution failed: %v\nOutput: %s", err, output)
+	args := make([]string, len(tool.FixedArgs))
+	copy(args, tool.FixedArgs)
+	for k, v := range params {
+		placeholder := "{" + strings.ToUpper(k) + "}"
+		for i, arg := range args {
+			args[i] = strings.ReplaceAll(arg, placeholder, v)
+			args[i] = strings.ReplaceAll(args[i], "{TARGET}", v) 
+		}
+		_ = placeholder
 	}
 
+	if primary, ok := params[tool.TargetParam]; ok {
+		args = substituteTarget(args, primary)
+	}
+
+	timeout := toolTimeout(toolKey)
+	output, err := SafeExec(tool.Binary, args, timeout)
+	if err != nil {
+		return "", fmt.Errorf("[%s] %v", toolKey, err)
+	}
 	return output, nil
+}
+
+func ToolExists(toolKey string) bool {
+	_, ok := registry.GetToolArsenal()[toolKey]
+	return ok
+}
+
+func ListTools() []string {
+	arsenal := registry.GetToolArsenal()
+	keys := make([]string, 0, len(arsenal))
+	for k := range arsenal {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+
+func substituteTarget(args []string, target string) []string {
+	result := make([]string, len(args))
+	for i, arg := range args {
+		result[i] = strings.ReplaceAll(arg, "{TARGET}", target)
+	}
+	return result
+}
+
+func toolTimeout(toolKey string) time.Duration {
+	switch {
+	case strings.HasPrefix(toolKey, "plaso_log2timeline"):
+		return 120 
+	case strings.HasPrefix(toolKey, "plaso_"):
+		return 30
+	case strings.HasPrefix(toolKey, "vol_"):
+		return 10
+	case strings.HasPrefix(toolKey, "tsk_"):
+		return 5
+	case strings.HasPrefix(toolKey, "pcap_"):
+		return 15
+	default:
+		return 5
+	}
 }
