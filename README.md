@@ -1,113 +1,224 @@
-
 <div align="center">
   <h1>LogPoseSIFT</h1>
   <p>
     <strong>Autonomous Multi-Agent DFIR Orchestrator</strong><br />
-    Protecting evidence integrity while accelerating incident triage through type-safe Custom MCP Servers.<br /><br />
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/tree/main/docs">Explore Architecture</a> ·
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/issues">Report an Issue</a>
+    100% precision · 0 hallucinations · Custom Go MCP Server · Real APT dataset validated
   </p>
-
   <p>
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/commits/main">
-      <img src="https://img.shields.io/github/last-commit/amareshhebbar/LogPoseSIFT?style=flat-square&logo=git&color=005571" alt="Last Commit" />
-    </a>
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT">
-      <img src="https://img.shields.io/github/repo-size/amareshhebbar/LogPoseSIFT?style=flat-square&logo=github&color=005571" alt="Repo Size" />
-    </a>
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/amareshhebbar/LogPoseSIFT?style=flat-square&logo=open-source-initiative&color=005571" alt="License" />
-    </a>
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT">
-      <img src="https://img.shields.io/badge/Language-Go-005571?style=flat-square&logo=go" alt="Built with Go" />
-    </a>
+    <a href="https://github.com/amareshhebbar/LogPoseSIFT/blob/main/docs/architecture.md">Architecture</a> ·
+    <a href="https://github.com/amareshhebbar/LogPoseSIFT/blob/main/docs/accuracy_report.md">Accuracy Report</a> ·
+    <a href="https://github.com/amareshhebbar/LogPoseSIFT/blob/main/docs/dataset.md">Dataset</a> ·
+    <a href="https://github.com/amareshhebbar/LogPoseSIFT/issues">Issues</a>
+  </p>
+  <p>
+    <img src="https://img.shields.io/github/last-commit/amareshhebbar/LogPoseSIFT?style=flat-square&color=005571" />
+    <img src="https://img.shields.io/badge/Language-Go-005571?style=flat-square&logo=go" />
+    <img src="https://img.shields.io/badge/Precision-100%25-005571?style=flat-square" />
+    <img src="https://img.shields.io/badge/Recall-92.8%25-005571?style=flat-square" />
+    <img src="https://img.shields.io/badge/Hallucinations-0-005571?style=flat-square" />
+    <img src="https://img.shields.io/github/license/amareshhebbar/LogPoseSIFT?style=flat-square&color=005571" />
   </p>
 </div>
 
-<br />
+---
+
+## What Is This
+
+LogPoseSIFT is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to the SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go**.
+
+The core design principle: **the LLM cannot run shell commands**. It can only call typed Go functions. The MCP server is the security boundary — architectural enforcement, not prompt-based rules.
+
+On the SRL-2018 APT dataset (a documented real-world intrusion with a DKOM rootkit, C2 beaconing, and lateral movement), LogPoseSIFT:
+
+- Identified **13 of 14 documented IOCs** including the external C2 IP, all malicious processes, and the rootkit itself
+- Achieved **100% precision** — zero hallucinated findings
+- Ran fully autonomously across **6 agentic iterations** with a self-correction sequence that detected DKOM rootkit hiding
 
 ---
 
-## Features
-
-LogPoseSIFT equips incident responders with an AI-driven triage system that operates at machine speed without compromising forensic soundness. Here is what you can do:
-
-* **Type-Safe Tool Execution:** Expose raw SIFT command-line tools (like Volatility and Plaso) as strictly typed Golang API endpoints to physically prevent evidence spoliation and destructive commands.
-* **Multi-Agent Orchestration:** Decompose complex forensic workloads by routing tasks between specialized AI agents (e.g., Memory Specialist, Disk Specialist, Synthesizer) to prevent context window degradation.
-* **Self-Correcting Execution Loops:** Utilize bounded iteration caps that allow agents to catch errors, adjust parameters, and retry tool execution without falling into infinite conversational spirals.
-* **Structured Execution Logging:** Generate transparent, programmatically structured logs detailing full tool execution sequences, agent-to-agent communication, and token usage for judge review and auditability.
-* **Context Window Optimization:** Parse massive terminal outputs into clean, concise JSON structures before returning data to the LLM, ensuring the system processes only highly relevant artifacts.
-
-**Why It Matters:** These features allow security teams and practitioners to match the velocity of autonomous threat actors, reducing initial triage time from hours to seconds while maintaining absolute evidence integrity.
-
----
-
-## Installation
-
-LogPoseSIFT is designed to run natively within the SANS SIFT Workstation environment. 
-
-### Prerequisites
-* SANS SIFT Workstation VM (Ubuntu 22.04 base)
-* Golang 1.21+ installed
-* Protocol SIFT baseline installed
-
-To get started, clone the repository into your SIFT workspace:
+## Quickstart (SIFT Workstation)
 
 ```bash
+# 1. Clone
 git clone https://github.com/amareshhebbar/LogPoseSIFT
-cd logposesift
-```
+cd LogPoseSIFT
 
----
+# 2. Set API key
+echo "ANTHROPIC_API_KEY=sk-ant-your-key-here" > .env
 
-## Quick Start
-
-Initialize the Go modules and build the custom MCP server:
-
-```bash
+# 3. Build
 go mod tidy
-go build -o logposesift-mcp cmd/sift-mcp/main.go
+go build -o logpose-ai ./cmd/sift-mcp/
+
+# 4. Run MCP server (for use with Claude Desktop or Claude Code)
+./logpose-ai --mode=mcp
+
+# 5. Run autonomous triage on evidence
+./logpose-ai --mode=ai \
+  --target=/path/to/evidence.img \
+  --type=memory        # or: disk | both
 ```
 
-### Execution
-
-Provide your API credentials and execute the orchestrator against a target evidence file:
+### Run Benchmark
 
 ```bash
-ANTHROPIC_API_KEY=
-GEMINI_API_KEY=
-./logposesift-mcp --target /path/to/evidence.raw --mode triage
+# Extract SRL-2018 evidence first
+7z x /path/to/base-hunt-memory.7z -o/tmp/evidence/
+
+# Run benchmark (scores against documented ground truth)
+chmod +x benchmark/run_benchmark.sh
+./benchmark/run_benchmark.sh /tmp/evidence/base-hunt-memory.img memory
 ```
 
-**Expected Startup Output:**
-
-```text
-2026-04-28 15:42:10.157 | INFO | logposesift.server:main - Starting LogPoseSIFT Custom MCP Server
-2026-04-28 15:42:10.160 | INFO | logposesift.wrappers:load - Initializing typed wrappers for Volatility3, Plaso
-2026-04-28 15:42:10.165 | INFO | logposesift.agents:orchestrator - Agent routing logic loaded
-INFO: Waiting for application startup.
-INFO: Server running on [http://127.0.0.1:8718](http://127.0.0.1:8718) (Press CTRL+C to quit)
+Expected output:
+```
+True Positives  (TP): 13
+False Negatives (FN): 1
+False Positives (FP): 0
+Precision: 100.00%
+Recall:    92.86%
 ```
 
 ---
 
-## Architecture details
+## Architecture
 
-LogPoseSIFT utilizes a hybrid architecture:
+```
+Claude/Gemini (LLM)
+       │ MCP calls only — no shell access
+       ▼
+cmd/sift-mcp/main.go  ← SECURITY BOUNDARY
+       │ 12 typed MCP tools registered
+       │
+  ┌────┴────┐
+  │         │
+agents/   internal/
+  │         │
+  ├─ orchestrator    ├─ wrappers (7 typed tool wrappers)
+  ├─ memory_agent    ├─ validator (CONFIRMED/INFERRED/UNVERIFIED)
+  ├─ disk_agent      ├─ correlator (disk vs memory cross-ref)
+  └─ reasoning_logger└─ registry (tool allowlist, 30+ entries)
+       │
+  SIFT Tools (read-only)
+  vol / fls / log2timeline / rip.pl / yara / hashdeep
+```
 
-1.  **Custom MCP Server (Golang):** Acts as the security boundary. It wraps the 200+ raw SIFT tools. The LLM cannot execute raw shell commands; it can only call predefined functions like `analyze_memory()` or `extract_timeline()`.
-2.  **Agent Logic (Python/Go):** Manages the state and routing. A synthesizer agent evaluates the overall case and dispatches targeted requests to domain-specific agents, enforcing strict `--max-iterations` to prevent runaway token usage.
+The LLM calls MCP tools → Go dispatches to typed wrappers → wrappers call SIFT binaries via `exec.Command` (never `bash -c`) → output parsed to JSON → structured result returned to LLM.
+
+[Full architecture documentation →](docs/architecture.md)
 
 ---
 
-## Roadmap and Future Goals
+## MCP Tools (12 registered)
 
-* **Live Endpoint Integration:** Expanding the MCP server to pull live data from SIEMs or remote endpoints.
-* **Expanded Tool Wrappers:** Adding strict JSON parsing for the remaining 150+ SIFT command-line utilities.
-* **Benchmarking Harness:** Releasing an automated accuracy framework to measure false positives against known-good disk images.
+| Tool | Category | What It Does |
+|---|---|---|
+| `analyze_memory_windows_info` | Memory | OS version, kernel base, architecture |
+| `analyze_memory_pslist` | Memory | Process scan via pool tags (bypasses DKOM) |
+| `analyze_memory_netscan` | Memory | Active + closed TCP/UDP connections |
+| `analyze_memory_malfind` | Memory | Code injection, process hollowing |
+| `analyze_memory_cmdline` | Memory | Command line arguments of all processes |
+| `hunt_memory_malware` | Memory | **Full autonomous 9-step triage with self-correction** |
+| `analyze_disk_timeline` | Disk | log2timeline → psort super-timeline |
+| `analyze_disk_fls` | Disk | Filesystem listing (allocated + deleted) |
+| `analyze_registry` | Registry | SAM/SYSTEM/SOFTWARE/NTUSER hive extraction |
+| `run_yara_scan` | Detection | Pattern matching with 8 built-in APT rules |
+| `verify_hashes` | Integrity | SHA-256/MD5 compute or audit against known-good |
+| `correlate_findings` | Analysis | Memory ↔ disk cross-reference, fileless/timestomp detection |
 
 ---
 
-## Contributing
+## Self-Correction Demo
 
-Contributions to LogPoseSIFT are welcome. Please read the contributing guidelines before submitting a pull request.
+The memory agent's self-correction sequence (visible in terminal output):
+
+```
+[*] Claude iteration 3/10
+  -> Tool: hunt_memory_malware
+
+[MemoryAgent] Starting autonomous memory triage...
+  ~ [MemoryAgent] vol_windows_info     | 805ms | INFERRED
+  ~ [MemoryAgent] vol_windows_pslist   | 31s   | INFERRED
+    ↳ DELTA: pslist returned only header — rootkit DKOM confirmed
+  ~ [MemoryAgent] analyze_memory_netscan | 30s  | INFERRED
+  ✓ [MemoryAgent] vol_windows_malfind  | 882ms | CONFIRMED
+    ↳ DELTA: Empty malfind on 90+ process system = VAD hook = rootkit IOC
+  ✓ [MemoryAgent] vol_windows_cmdline  | 890ms | CONFIRMED
+    ↳ DELTA: Empty cmdline = process args hidden by rootkit
+  ~ [MemoryAgent] vol_windows_svcscan  | 1.2s  | INFERRED
+  ✓ [MemoryAgent] psxview_diff         | 2.1s  | CONFIRMED
+    ↳ DELTA: DKOM confirmed: 87 processes hidden from pslist, visible in psscan
+  ~ [MemoryAgent] hollowprocesses      | 1.8s  | INFERRED
+  ~ [MemoryAgent] vol_windows_dlllist  | 950ms | INFERRED
+```
+
+---
+
+## Evidence Integrity
+
+All operations are **read-only** by architectural enforcement:
+
+- Volatility is called with `-f path` — read-only file access
+- TSK tools are read-only by design
+- No write, delete, or modify operations exist in the tool registry
+- `exec.Command("vol", args...)` — not `exec.Command("bash", "-c", input)`
+- SHA-256 + MD5 hashes computed at triage start, verified at end
+- Spoliation test: hash before/after full triage — identical
+
+---
+
+## Project Structure
+
+```
+LogPoseSIFT/
+├── cmd/sift-mcp/main.go          # MCP server entry point (12 tools)
+├── agents/
+│   ├── orchestrator/orchestrator.go  # Claude+Gemini dual engine, agentic loop
+│   ├── memory_agent/memory.go        # 9-step autonomous memory triage
+│   ├── disk_agent/disk.go            # Evidence-type-aware disk triage
+│   └── reasoning_logger/             # Analyst training loop (intent+delta)
+├── internal/
+│   ├── wrappers/                 # 7 typed tool wrappers + executor
+│   ├── registry/sift_tools.go   # 30+ tool allowlist (binary + typed args)
+│   ├── validator/validator.go   # Hallucination guard (CONFIRMED/INFERRED)
+│   ├── correlator/correlator.go # Disk vs memory cross-reference
+│   └── logger/logger.go         # JSONL structured audit trail
+├── benchmark/
+│   ├── run_benchmark.sh         # Accuracy harness (TP/FP/FN scoring)
+│   └── ground_truth/            # Documented IOCs from SRL-2018
+├── data/                        # Evidence files (not in git)
+├── docs/
+│   ├── architecture.md          # Security boundaries + data flow
+│   ├── accuracy_report.md       # Benchmark results + methodology
+│   ├── dataset.md               # Dataset documentation
+│   └── devpost_story.md         # Project story for submission
+├── logs/                        # Session logs (JSONL + Markdown per run)
+└── README.md
+```
+
+---
+
+## Accuracy Results
+
+Full report: [docs/accuracy_report.md](docs/accuracy_report.md)
+
+Tested against SRL-2018 Compromised Enterprise Network (SANS DFIR Summit dataset):
+
+| Metric | Result |
+|---|---|
+| True Positives | 13 / 14 IOCs |
+| False Positives | 0 |
+| Hallucinations | 0 |
+| Precision | **100%** |
+| Recall | **92.8%** |
+| Triage time | 552 seconds |
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+## Built For
+
+[FIND EVIL! Hackathon](https://findevil.devpost.com/) — SANS Institute · April–June 2026

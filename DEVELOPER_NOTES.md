@@ -1,85 +1,200 @@
+# LogPoseSIFT — Developer Notes
 
-# LogPoseSIFT: Developer Playbook
+## Environment
 
-This document outlines the core directory structure, environment verification steps, and the daily startup routine for working on the LogPoseSIFT project via the Fedora-to-VM SSHFS bridge.
+- **SIFT Workstation:** Ubuntu 22.04 (VirtualBox VM)
+- **Host:** Fedora (SSHFS bridge to VM)
+- **Language:** Go 1.22
+- **API Keys:** Store in `.env` file in project root (gitignored)
 
-## 1. Project Architecture Map
+---
 
-This is the map of where code lives and what it does. 
+## Daily Startup (Fedora Host → SIFT VM)
 
-```text
-LogPoseSIFT/
-├── cmd/
-│   └── sift-mcp/          # Entry point: The Golang main.go for the custom MCP server
-├── internal/
-│   ├── wrappers/          # Security Boundary: Safe Golang API wrappers for SIFT CLI tools (e.g., Volatility, Plaso)
-│   └── parsers/           # Formatting: Logic to convert messy terminal output into structured JSON
-├── agents/
-│   ├── memory_agent/      # AI Logic: Prompting and routing for RAM analysis
-│   ├── disk_agent/        # AI Logic: Prompting and routing for hard drive timelines
-│   └── orchestrator/      # Main Node: Routes tasks between specialized agents and enforces iteration caps
-├── data/                  # Ignored by Git: Drop sample disk images and raw memory dumps here
-├── logs/                  # Required Deliverable: Execution traces, token usage, and agent communication logs
-├── docs/                  # Required Deliverables: Architecture diagrams, accuracy reports, etc.
-├── .gitignore             # Prevents massive forensic data files from breaking Git
-├── go.mod                 # Golang dependency tracking
-└── README.md              # Project story, build instructions, and hackathon checklist
+```bash
+# 1. Start SIFT VM in VirtualBox
+# 2. Get VM IP in SIFT terminal:
+ip a | grep "inet " | grep -v 127
+
+# 3. Mount VM filesystem on Fedora host:
+sshfs sansforensics@<VM_IP>:/home/sansforensics/LogPoseSIFT ~/hackathon/LogPoseSIFT
+
+# 4. Verify bridge works:
+touch ~/hackathon/LogPoseSIFT/test.txt
+# Check it appears in SIFT VM:
+ls ~/LogPoseSIFT/test.txt && rm test.txt
 ```
 
 ---
 
-## 2. The Daily Startup Routine
+## Common Commands (run inside SIFT VM)
 
-When starting a new coding session, the SSHFS bridge must be re-established. Follow this 3-step routine.
+```bash
+cd ~/LogPoseSIFT
 
-### Step 1: Boot the SIFT Environment
-1. Open VirtualBox on the Fedora host.
-2. Select the **SIFT Workstation** VM and click **Start**.
-3. Log in using the standard credentials (`sansforensics` / `forensics`).
+# Build the binary
+go build -o logpose-ai ./cmd/sift-mcp/
 
-### Step 2: Grab the Current IP Address
-Because the VM is running on a Bridged Adapter, your local router assigns its IP. It may change if the router restarts.
-1. Open a terminal inside the SIFT VM.
-2. Run the following command:
-   ```bash
-   ip a
-   ```
-3. Locate the `inet` address under the primary network interface (e.g., `enp0s17` or `eth0`). It will look similar to `192.168.0.4`.
+# Test MCP server starts (Ctrl+C to exit)
+./logpose-ai --mode=mcp
 
-### Step 3: Mount the Developer Bridge
-1. Open a terminal on your Fedora host machine.
-2. Mount the remote VM directory to your local workspace using the IP address found in Step 2:
-   ```bash
-   sshfs sansforensics@<CURRENT_VM_IP>:/home/sansforensics/LogPoseSIFT ~/hackathon/LogPoseSIFT
-   ```
-3. Enter the password (`forensics`) when prompted. You can now open `~/hackathon/LogPoseSIFT` in your local IDE.
+# Run autonomous triage on memory dump
+./logpose-ai --mode=ai \
+  --target=/tmp/evidence/base-hunt-memory.img \
+  --type=memory
+
+# Run autonomous triage on disk image
+./logpose-ai --mode=ai \
+  --target=/tmp/evidence/base-file-snapshot5.img \
+  --type=disk
+
+# Run benchmark (scores TP/FP/FN against ground truth)
+./benchmark/run_benchmark.sh /tmp/evidence/base-hunt-memory.img memory
+
+# Check audit logs from last run
+ls -lt logs/ | head -5
+cat logs/triage_*_tools.jsonl | python3 -m json.tool | head -60
+
+# Check reasoning chain from last run
+cat logs/triage_*_reasoning.md | head -100
+```
 
 ---
 
-## 3. Verifying the Connection
+## Evidence Setup
 
-If you suspect the bridge has dropped or did not mount correctly, perform this quick two-step check:
-
-**Action on Fedora Host:**
-Create a test file in your local directory.
 ```bash
-touch ~/hackathon/LogPoseSIFT/connection_test.txt
+# Extract the SRL-2018 memory image (do this once)
+mkdir -p /tmp/evidence
+cd ~/LogPoseSIFT/data/Compromised_APT_Attack_Scenarios/\
+SRL_2018_Compromised_Enterprose_Network/SRL_2018/\
+HACKATHON-2026/Compromised\ APT\ Attack\ Scenarios/\
+SRL-2018-Compromised\ Enterprise\ Network/SRL-2018/
+
+7z x base-hunt-memory.7z -o/tmp/evidence/
+ls -lh /tmp/evidence/
+# Expected: base-hunt-memory.img (5.37 GB) + base-hunt-memory.md5
 ```
 
-**Action in SIFT VM:**
-Check if the file immediately appears in the remote directory.
+---
+
+## Volatility Commands (direct, for debugging)
+
 ```bash
-ls ~/LogPoseSIFT
+# OS info
+vol -f /tmp/evidence/base-hunt-memory.img windows.info
+
+# Process scan (bypasses rootkit DKOM)
+vol -f /tmp/evidence/base-hunt-memory.img windows.psscan | head -30
+
+# Network connections
+vol -f /tmp/evidence/base-hunt-memory.img windows.netscan | head -20
+
+# Compare pslist vs psscan (DKOM diff)
+vol -f /tmp/evidence/base-hunt-memory.img windows.pslist > /tmp/pslist.txt
+vol -f /tmp/evidence/base-hunt-memory.img windows.psscan > /tmp/psscan.txt
+diff /tmp/pslist.txt /tmp/psscan.txt | head -30
+
+# Service scan
+vol -f /tmp/evidence/base-hunt-memory.img windows.svcscan | head -20
+
+# PSXView (4-method comparison)
+vol -f /tmp/evidence/base-hunt-memory.img windows.psxview | head -20
 ```
 
-If `connection_test.txt` is visible in the VM terminal, the bridge is fully active. You can then safely delete the test file.
+---
 
+## Project Structure Quick Reference
 
------
+```
+cmd/sift-mcp/main.go         ← START HERE: MCP server + AI entry point
+agents/orchestrator/         ← Claude/Gemini agentic loop
+agents/memory_agent/         ← Autonomous memory triage (9 steps)
+agents/disk_agent/           ← Autonomous disk triage
+agents/reasoning_logger/     ← Analyst training loop (intent+delta)
+internal/wrappers/           ← Typed tool wrappers (the security boundary)
+internal/registry/           ← Tool allowlist (what can run)
+internal/validator/          ← Hallucination guard (CONFIRMED/INFERRED)
+internal/correlator/         ← Disk vs memory cross-reference
+internal/logger/             ← JSONL audit trail
+benchmark/                   ← Accuracy harness + ground truth
+docs/                        ← All submission documents
+```
 
-go run cmd/sift-mcp/main.go --mode=ai
+---
 
-to teest api key
+## Adding a New Tool Wrapper
 
-go run cmd/sift-mcp/main.go --mode=mcp
-To start executring the server
+1. Add entry to `internal/registry/sift_tools.go`:
+```go
+"tool_key": {
+    Binary:      "binary-name",
+    Description: "What it does",
+    FixedArgs:   []string{"--flag", "{TARGET}"},
+    TargetParam: "input_param_name",
+},
+```
+
+2. Register as MCP tool in `cmd/sift-mcp/main.go`:
+```go
+s.AddTool(
+    mcp.NewTool("tool_name",
+        mcp.WithDescription("Description for Claude"),
+        mcp.WithString("param", mcp.Required(), mcp.Description("...")),
+    ),
+    func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+        p, err := mustStr(getArgs(req), "param")
+        if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+        out, err := wrappers.RunRegistryTool("tool_key", p)
+        if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+        return mcp.NewToolResultText(out), nil
+    },
+)
+```
+
+3. Add to `allToolDefs()` in `agents/orchestrator/orchestrator.go` if Claude should use it autonomously.
+
+4. `go build -o logpose-ai ./cmd/sift-mcp/` to verify.
+
+---
+
+## API Key Setup
+
+```bash
+# .env file (gitignored)
+ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=AI...
+
+# The orchestrator loads this automatically via godotenv
+# Verify it's loaded:
+./logpose-ai --mode=ai --target=/tmp/evidence/base-hunt-memory.img --type=memory
+# Should show: [*] Primary Engine: Claude
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `model not found` | Check model string in `orchestrator.go`: use `claude-sonnet-4-6` |
+| `credit balance too low` | Add credits at console.anthropic.com |
+| `vol: error: argument PLUGIN: invalid choice /path` | Remove `--symbols-path` from Volatility args — symbols are cached |
+| `rules_path must be under /opt/logposesift/yara-rules` | Set `LOGPOSE_YARA_RULES_DIR=~/yara-rules` or create the dir |
+| `log2timeline: unrecognized arguments` | Use `--storage-file` not positional args |
+| `BrokenPipeError` from Volatility | Normal when piping to `head` — not an error |
+| `builds clean` but empty final report | Check `MaxTokens` in `runClaude()` — must be 8192 |
+
+---
+
+## Git Workflow
+
+```bash
+# Save progress
+git add . && git commit -m "description of change"
+git push origin <branch-name>
+
+# Check what changed
+git log --oneline -10
+git diff HEAD~1 --stat
+```
