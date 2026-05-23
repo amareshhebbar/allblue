@@ -1,0 +1,25 @@
+{
+  "session": {
+    "timestamp": "20260523_045646",
+    "evidence": "/tmp/evidence/base-hunt-memory.img",
+    "evidence_type": "memory",
+    "triage_duration_seconds": 552
+  },
+  "scores": {
+    "true_positives": 10,
+    "false_negatives": 4,
+    "false_positives": 0,
+    "total_known_iocs": 14,
+    "precision_pct": 100.0,
+    "recall_pct": 71.42
+  },
+  "true_positives": [
+    "PROCESS: ftusbsrvc.exe (C2 listener service),PROCESS: license_ctrl.exe (persistence service),PROCESS: usbclient.exe (primary implant),NETWORK: 172.16.4.10 (internal C2 relay),NETWORK: :33000 (C2 port 33000),NETWORK: 108.79.235.64 (external C2 IP),NETWORK: :8080 (C2 port 8080),ROOTKIT: rootkit identified,ROOTKIT: DKOM rootkit technique,LATERAL: SMB lateral movement to internal hosts"
+  ],
+  "false_negatives": [
+    "PROCESS: main_console.exe (attacker console),PROCESS: connector_ctrl.exe (malware connector),PROCESS: subject_ctrl.exe (malware controller),ROOTKIT: psxview DKOM detection"
+  ],
+  "unverified_claims": [
+    ""
+  ]
+}

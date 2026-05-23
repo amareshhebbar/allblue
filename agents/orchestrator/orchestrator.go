@@ -14,6 +14,7 @@ import (
 	"github.com/gvamaresh/logposesift/internal/correlator"
 	"github.com/gvamaresh/logposesift/internal/logger"
 	"github.com/gvamaresh/logposesift/internal/wrappers"
+	"github.com/gvamaresh/logposesift/agents/reasoning_logger"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
@@ -59,6 +60,9 @@ func (e *Engine) RunTriage(evidencePath string, evidenceType string) {
 	if err := logger.Init(sessionID, "./logs"); err != nil {
 		fmt.Printf("[!] Logger init failed: %v\n", err)
 	}
+	reasoning_logger.Init(sessionID, "./logs", evidencePath, evidenceType)
+	defer reasoning_logger.Get().WriteReport()
+	defer reasoning_logger.Get().PrintSummary()
  
 	fmt.Printf("\n[*] LogPoseSIFT AI Orchestrator -- Session %s\n", sessionID)
 	fmt.Printf("[*] Evidence: %s (type: %s)\n\n", evidencePath, evidenceType)

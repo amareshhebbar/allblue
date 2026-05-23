@@ -31,6 +31,18 @@ func GetToolArsenal() map[string]SiftTool {
 			FixedArgs:   []string{"-f", "{TARGET}", "windows.psscan"}, 
 			TargetParam: "dump_path",
 		},
+		"vol_windows_psxview": {
+			Binary:      "vol",
+			Description: "Cross-reference 4 process enumeration methods — pslist vs psscan vs thrdscan vs csrss. Processes in psscan but not pslist = DKOM rootkit.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.psxview"},
+			TargetParam: "dump_path",
+		},
+		"vol_windows_hollowprocesses": {
+			Binary:      "vol",
+			Description: "Detect process hollowing — legitimate process name with malicious PE in memory instead of original binary.",
+			FixedArgs:   []string{"-f", "{TARGET}", "windows.hollowprocesses"},
+			TargetParam: "dump_path",
+		},
 		"vol_windows_netscan": {
 			Binary:      "vol",
 			Description: "Lists active and recently closed network connections. Find C2 IPs here.",

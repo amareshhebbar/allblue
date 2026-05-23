@@ -1,0 +1,34 @@
+{
+  "dataset": "SRL-2018 Compromised Enterprise Network",
+  "source": "SANS DFIR Summit / HACKATHON-2026",
+  "evidence_file": "base-hunt-memory.img",
+  "documented_iocs": {
+    "malicious_processes": [
+      {"name": "usbclient.exe", "pid": 6648, "ppid": 4508, "note": "Primary implant, spawned from explorer.exe"},
+      {"name": "license_ctrl.exe", "pid": 1716, "ppid": 660, "note": "Persistence service, listener on 5682"},
+      {"name": "subject_ctrl.exe", "pid": 7076, "ppid": 660, "note": "Malware controller"},
+      {"name": "connector_ctrl.exe", "pid": 6868, "ppid": 660, "note": "Malware connector"},
+      {"name": "imager_ctrl.exe", "pid": 3324, "ppid": 660, "note": "Malware imager component"},
+      {"name": "main_console.exe", "pid": 6960, "ppid": 4508, "note": "Attacker console interface"},
+      {"name": "ftusbsrvc.exe", "pid": 4916, "ppid": 660, "note": "USB service with C2 listener on 33001"}
+    ],
+    "c2_connections": [
+      {"remote_ip": "108.79.235.64", "remote_port": 33000, "state": "ESTABLISHED", "note": "Primary external C2"},
+      {"remote_ip": "172.16.4.10", "remote_port": 8080, "state": "CLOSED", "note": "Internal C2 relay (11+ beaconing connections)"}
+    ],
+    "lateral_movement": [
+      {"remote_ip": "172.16.4.5", "remote_port": 445, "protocol": "SMB", "note": "SMB lateral movement"},
+      {"remote_ip": "172.16.5.50", "remote_port": 445, "protocol": "SMB", "note": "SMB lateral movement"}
+    ],
+    "rootkit_indicators": [
+      {"type": "DKOM", "note": "pslist returns empty header; all processes hidden from ActiveProcessLinks"},
+      {"type": "VAD_hook", "note": "malfind returns empty; VAD walk blocked by rootkit"},
+      {"type": "cmdline_suppression", "note": "cmdline returns empty; process args hidden"}
+    ],
+    "expected_psxview": {
+      "all_processes_hidden_from_pslist": true,
+      "psscan_finds_processes": true,
+      "hidden_count_min": 30
+    }
+  }
+}
