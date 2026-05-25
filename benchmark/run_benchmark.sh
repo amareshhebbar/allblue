@@ -73,10 +73,10 @@ setup_ground_truth() {
     "malicious_processes": [
       {"name": "usbclient.exe", "pid": 6648, "ppid": 4508, "note": "Primary implant, spawned from explorer.exe"},
       {"name": "license_ctrl.exe", "pid": 1716, "ppid": 660, "note": "Persistence service, listener on 5682"},
-      {"name": "subject_ctrl.exe", "pid": 7076, "ppid": 660, "note": "Malware controller"},
-      {"name": "connector_ctrl.exe", "pid": 6868, "ppid": 660, "note": "Malware connector"},
+      {"name": "subject_ctrl", "pid": 7076, "ppid": 660, "note": "Malware controller"},
+      {"name": "connector_ctrl", "pid": 6868, "ppid": 660, "note": "Malware connector"},
       {"name": "imager_ctrl.exe", "pid": 3324, "ppid": 660, "note": "Malware imager component"},
-      {"name": "main_console.exe", "pid": 6960, "ppid": 4508, "note": "Attacker console interface"},
+      {"name": "main_console", "pid": 6960, "ppid": 4508, "note": "Attacker console interface"},
       {"name": "ftusbsrvc.exe", "pid": 4916, "ppid": 660, "note": "USB service with C2 listener on 33001"}
     ],
     "c2_connections": [
@@ -143,9 +143,9 @@ score_findings() {
     declare -A mal_processes=(
         ["usbclient.exe"]="primary implant"
         ["license_ctrl.exe"]="persistence service"
-        ["subject_ctrl.exe"]="malware controller"
-        ["connector_ctrl.exe"]="malware connector"
-        ["main_console.exe"]="attacker console"
+        ["subject_ctrl"]="malware controller"
+        ["connector_ctrl"]="malware connector"
+        ["main_console"]="attacker console"
         ["ftusbsrvc.exe"]="C2 listener service"
     )
     for proc in "${!mal_processes[@]}"; do
