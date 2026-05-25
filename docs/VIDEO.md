@@ -2,9 +2,11 @@
 
 ## Full Triage Demo
 
-[![LogPoseSIFT — Autonomous DFIR Agent | FIND EVIL Hackathon 2026](https://img.youtube.com/vi/s-zyl17KDTU/maxresdefault.jpg)](https://youtu.be/s-zyl17KDTU)
+<a href="https://youtu.be/s-zyl17KDTU">
+  <img src="../assets/Screenshot%20from%202026-05-25%2012-37-22.png" alt="LogPoseSIFT — Autonomous DFIR Agent | FIND EVIL Hackathon 2026" width="800">
+</a>
 
-> Click the thumbnail above to watch on YouTube.  
+> Click the thumbnail above to watch on YouTube
 > **Built by Amaresh Hebbar** — SANS FIND EVIL! Hackathon 2026
 
 ---
