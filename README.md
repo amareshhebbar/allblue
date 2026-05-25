@@ -20,6 +20,9 @@
   </p>
 </div>
 
+
+> **AI Engine:** Designed for Claude Sonnet 4.6 (primary) with Gemini 2.5 Flash as automatic failover. All benchmark results and demo video were produced using Claude. Gemini fallback is functional but untested against the full SRL-2018 dataset.
+
 ---
 
 ## What Is This
@@ -179,28 +182,53 @@ All operations are **read-only** by architectural enforcement:
 
 ```
 LogPoseSIFT/
-├── cmd/sift-mcp/main.go          # MCP server entry point (12 tools)
+├── cmd/sift-mcp/main.go                  # MCP server entry point — 12 typed tools registered
 ├── agents/
-│   ├── orchestrator/orchestrator.go  # Claude+Gemini dual engine, agentic loop
-│   ├── memory_agent/memory.go        # 9-step autonomous memory triage
-│   ├── disk_agent/disk.go            # Evidence-type-aware disk triage
-│   └── reasoning_logger/             # Analyst training loop (intent+delta)
+│   ├── orchestrator/
+│   │   ├── orchestrator.go               # Claude or Gemini dual engine, 10-iteration agentic loop
+│   │   └── findings_extractor.go         # Pre-triage Go parser — embeds facts before LLM starts
+│   ├── memory_agent/memory.go            # 9-step autonomous memory triage with self-correction
+│   ├── disk_agent/disk.go                # Evidence-type-aware disk triage, log2timeline pipeline
+│   └── reasoning_logger/reasoning_logger.go  # Analyst training loop — intent/hypothesis/delta per call
 ├── internal/
-│   ├── wrappers/                 # 7 typed tool wrappers + executor
-│   ├── registry/sift_tools.go   # 30+ tool allowlist (binary + typed args)
-│   ├── validator/validator.go   # Hallucination guard (CONFIRMED/INFERRED)
-│   ├── correlator/correlator.go # Disk vs memory cross-reference
-│   └── logger/logger.go         # JSONL structured audit trail
+│   ├── wrappers/                         # 7 typed tool wrappers (no raw shell)
+│   │   ├── volatility.go                 # Volatility 3 memory forensics
+│   │   ├── regripper.go                  # Windows registry hive extraction
+│   │   ├── tsk.go                        # TSK: fls / mactime / icat
+│   │   ├── bulk_extractor.go             # Carved emails, URLs, credentials
+│   │   ├── foremost.go                   # File carving / recovery
+│   │   ├── log2timeline.go               # Plaso super-timeline pipeline
+│   │   ├── yara.go                       # YARA pattern matching (8 built-in APT rules)
+│   │   ├── hashdeep.go                   # SHA-256/MD5 evidence integrity
+│   │   ├── dynamic.go                    # Registry-driven tool executor
+│   │   ├── executor.go                   # SafeExec — exec.Command wrapper (never bash -c)
+│   │   └── helpers.go                    # Shell metachar guard, path validation, confidence consts
+│   ├── registry/sift_tools.go            # 30+ tool allowlist — binary + typed fixed args only
+│   ├── validator/validator.go            # Hallucination guard — CONFIRMED/INFERRED/UNVERIFIED
+│   ├── correlator/correlator.go          # Disk vs memory cross-reference, DKOM/fileless detection
+│   ├── logger/logger.go                  # JSONL structured audit trail per session
+│   └── parsers/
+│       ├── plaso_parser.go               # Plaso timeline output parser
+│       └── vol_parser.go                 # Volatility output parser
 ├── benchmark/
-│   ├── run_benchmark.sh         # Accuracy harness (TP/FP/FN scoring)
-│   └── ground_truth/            # Documented IOCs from SRL-2018
-├── data/                        # Evidence files (not in git)
+│   ├── run_benchmark.sh                  # Accuracy harness — TP/FP/FN against ground truth
+│   ├── ground_truth/
+│   │   └── srl2018_apt_ground_truth.json # 14 documented IOCs from SRL-2018 APT case
+│   └── results/                          # Scorecard JSON + Markdown per run
+├── assets/                               # Screenshots for documentation
 ├── docs/
-│   ├── architecture.md          # Security boundaries + data flow
-│   ├── accuracy_report.md       # Benchmark results + methodology
-│   ├── dataset.md               # Dataset documentation
-│   └── devpost_story.md         # Project story for submission
-├── logs/                        # Session logs (JSONL + Markdown per run)
+│   ├── architecture.md                   # Security boundaries + full data flow diagram
+│   ├── accuracy_report.md                # 100% precision, 92.86% recall, 0 hallucinations
+│   ├── dataset.md                        # SRL-2018 dataset documentation + reproducibility
+│   ├── devpost_story.md                  # Full project story for Devpost submission
+│   ├── SCREENSHOTS.md                    # 5 annotated evidence screenshots
+│   ├── VIDEO.md                          # Demo video + timestamps + YouTube description
+│   └── RESULT.md                         # Full live triage output from SRL-2018 run
+├── data/                                 # Evidence files — not committed to git
+├── logs/                                 # Session logs — JSONL + Markdown per triage run
+├── logpose-ai                            # Compiled binary
+├── go.mod
+├── go.sum
 └── README.md
 ```
 
