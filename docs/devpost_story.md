@@ -1,87 +1,128 @@
-# LogPoseSIFT — Devpost Project Story
+# LogPoseSIFT — Project Story
+
+## Inspiration
+
+The average attacker moves from initial access to domain control in **7 minutes**. The average incident responder takes **7 hours** to even start triage.
+
+That gap is not a skill problem — it is a speed problem. Attackers have automated their kill chain. Defenders are still typing commands manually.
+
+I built LogPoseSIFT to close that gap. Not with a chatbot wrapper around existing tools, but with a genuinely autonomous agent that thinks like a DFIR analyst — forming hypotheses, running tools, catching its own mistakes, and producing findings that are traceable back to raw evidence.
+
+The name comes from the *Log Pose* — the compass in One Piece that records and follows magnetic signatures to navigate unknown seas. LogPoseSIFT records the forensic signature of a compromise and navigates toward the truth.
+
+---
 
 ## What It Does
 
-LogPoseSIFT is an autonomous DFIR triage agent that closes the speed gap between AI-powered attackers and human defenders. It connects Claude (with Gemini failover) to the full SANS SIFT Workstation toolchain through a purpose-built Custom MCP Server written in Go.
+LogPoseSIFT is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to the full SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go** — the most architecturally sound pattern available.
 
 Given a memory dump or disk image, LogPoseSIFT autonomously:
 
-1. **Pre-triages** the evidence in Go before the LLM even starts — running psscan and netscan directly and parsing real findings into a structured fact sheet embedded in the initial prompt
-2. **Calls 12 forensic tools** across 6 categories (memory, disk, registry, YARA, hashing, correlation) in an agentic loop of up to 10 iterations
-3. **Self-corrects** — when pslist returns empty (rootkit hiding processes), the memory agent detects this, escalates to psscan, then runs psxview to produce a DKOM diff proving which processes are hidden
-4. **Correlates** memory findings against disk findings to detect fileless malware (process in memory with no disk trace) and timestomping (timestamp contradictions)
-5. **Tags every finding** CONFIRMED / INFERRED / UNVERIFIED before returning it to the LLM — a hallucination guard that runs in Go before any finding touches the context window
-6. **Writes an audit trail** — structured JSONL logs and a human-readable Markdown reasoning chain documenting intent, hypothesis, result, and delta for every tool call
+- **Pre-triages in Go** before the LLM starts — running psscan and netscan directly, parsing real findings into a structured fact sheet embedded in the initial prompt. Claude cannot hallucinate what is already in its own context.
+- **Executes 12 typed MCP tools** across 6 categories (memory, disk, registry, YARA, hashing, correlation) in an agentic loop of up to 10 iterations.
+- **Self-corrects** — when pslist returns empty because a rootkit unlinked the EPROCESS chain, the memory agent detects this, flags it as a CONFIRMED DKOM IOC, escalates to pool tag scanning (psscan), and runs a psxview diff to prove which processes are hidden.
+- **Correlates** memory findings against disk findings to detect fileless malware and timestomping.
+- **Tags every finding** CONFIRMED / INFERRED / UNVERIFIED via a Go validator before it reaches the context window.
+- **Writes a full audit trail** — structured JSONL plus human-readable Markdown with intent, hypothesis, result, and delta per tool call.
 
-On the SRL-2018 APT dataset (a documented real-world intrusion), LogPoseSIFT achieved **100% precision and 92.8% recall** with **zero hallucinated findings**.
+### Benchmark results — SRL-2018 APT dataset (real-world intrusion, documented ground truth)
+
+| Metric | Result |
+|---|---|
+| True Positives | **13 / 14 IOCs** |
+| False Positives | **0** |
+| Hallucinations | **0** |
+| Precision | **100%** |
+| Recall | **92.8%** |
+
+---
+
+## Architectural Pattern — Custom MCP Server
+
+This is the hardest of the four supported approaches. Most competitors used Direct Agent Extension — prompt-based, two hours of work. We built architectural enforcement.
+
+The LLM cannot run arbitrary shell commands. It calls typed Go functions registered as MCP tools. Go constructs the `exec.Command` args from validated typed inputs — never from LLM output. Shell metacharacter injection is rejected at the input layer before execution.
+
+```
+Claude / Gemini (LLM)
+        │  MCP protocol — typed tool calls only
+        ▼
+cmd/sift-mcp/main.go   ← SECURITY BOUNDARY
+        │  12 registered tools
+   ┌────┴────┐
+agents/     internal/
+   │             │
+   ├─ orchestrator      ├─ wrappers/  (7 typed tool wrappers)
+   ├─ memory_agent      ├─ validator/ (hallucination guard)
+   ├─ disk_agent        ├─ correlator/(disk vs memory cross-ref)
+   └─ reasoning_logger  └─ registry/  (tool allowlist, 30+ entries)
+        │
+   SIFT Tools  (READ-ONLY)
+   vol · fls · log2timeline · rip.pl · yara · hashdeep
+```
+
+**Key distinction:** A prompt-injected instruction saying "delete the evidence file" will fail because `rm` is not in the tool registry and the MCP server has no shell execution capability. This is not a guardrail — it is an absence of capability.
 
 ---
 
 ## How We Built It
 
-### Architecture Decision
+### Phase 1 — Architecture
 
-We chose the Custom MCP Server pattern — the hardest of the four supported approaches and the one the competition documentation calls "the most sound architecture." Most competitors used Direct Agent Extension (easiest path, prompt-based guardrails). We built architectural enforcement: the LLM literally cannot run a destructive command because the MCP server does not expose shell access.
+We committed to the Custom MCP Server pattern from day one. Every SIFT tool became a typed Go struct with validated input parameters and a JSON output parser.
 
-### The Security Boundary
+`volatility.go` was the template. We repeated the pattern for RegRipper, TSK (fls/mactime/icat), bulk_extractor, foremost, log2timeline, YARA, and hashdeep — building a library of type-safe forensic tool wrappers that the LLM can call without ever touching a shell.
 
-The core insight is that `exec.Command("vol", args...)` is fundamentally different from `exec.Command("bash", "-c", userInput)`. Every SIFT tool is wrapped as a typed Go function. The args are constructed by Go code from validated typed inputs — not by the LLM. Shell metacharacter injection is rejected at the input layer before execution.
+### Phase 2 — The Hallucination Problem
 
-### The Hallucination Problem
+Early versions had Claude receive 8,000 characters of real psscan data in iteration 1, then write "tools returned nothing" in iteration 6. The context window had moved on and it forgot.
 
-The biggest technical challenge was Claude ignoring real tool output in its final report and writing hallucinated findings instead. We solved this with **pre-triage fact injection**: Go code runs psscan and netscan before the LLM loop starts, parses the real process names and IP addresses, and embeds them as confirmed facts in the initial prompt. Claude cannot claim "tools returned nothing" when its own prompt contains the actual process list.
+The fix: **pre-triage fact injection**. Go runs psscan and netscan before the LLM loop starts, parses real process names and IP addresses into a structured fact sheet, and embeds it as confirmed facts in the very first message Claude reads. Claude cannot claim "no output" when the process names are sitting in its own system prompt.
 
-### The Rootkit Problem
+### Phase 3 — The Rootkit Problem
 
-The SRL-2018 image has a DKOM rootkit that hides all processes from `windows.pslist`. Our initial implementation failed silently — pslist returned only a header row. The fix required understanding that empty pslist on a live system **is itself a CONFIRMED finding**. The memory agent now explicitly reports empty malfind/cmdline as rootkit IOCs, not as failures.
+The SRL-2018 image has a DKOM rootkit that unlinks every process from the EPROCESS ActiveProcessLinks chain. Standard pslist returns only a header row.
 
-### Multi-Agent Architecture
+Early versions treated this as a tool failure. That was wrong.
 
-Three agents with distinct responsibilities:
-- **Memory Agent:** 9-step autonomous sequence (info → psscan → netscan → malfind → cmdline → svcscan → psxview self-correction → hollowprocesses → dllcheck)
-- **Disk Agent:** Evidence type detection (rejects memory dumps gracefully), log2timeline with fixed plaso paths, self-correction on sparse FLS
-- **Orchestrator:** Claude + Gemini dual-engine with automatic failover, pre-triage injection, tool dispatch
+Empty pslist on a live 90-process Windows system is not a failure — **it is a CONFIRMED IOC**. We rewrote the memory agent to explicitly report empty malfind and cmdline as rootkit indicators, added psxview diff as the self-correction step, and switched primary process enumeration from pslist to psscan (pool tag scanning, which bypasses DKOM).
+
+### Phase 4 — Accuracy Verification
+
+We built a benchmark harness (`benchmark/run_benchmark.sh`) that runs the agent autonomously against the SRL-2018 evidence, then scores the output against a documented ground truth JSON covering 14 known IOCs across 4 categories. The harness produces TP/FP/FN counts, precision, and recall — written to `benchmark/results/` on every run.
 
 ---
 
 ## Challenges
 
-**The context window problem.** Volatility's netscan returns 12,000+ characters. Passing raw terminal output to Claude fills the context window with noise and degrades report quality. Solution: Go parsers that extract only the semantically relevant rows (ESTABLISHED connections, suspicious ports) before returning to the LLM.
+**Context window degradation.** Volatility netscan returns 12,000+ characters. Passing raw terminal output to Claude fills the context window with noise and causes the LLM to lose track of earlier findings. Solution: Go parsers that extract only semantically relevant rows — ESTABLISHED connections, suspicious ports, non-RFC1918 addresses — before returning to the LLM.
 
-**The self-correction trigger.** Early versions only triggered self-correction if malfind explicitly contained "Process:" — which never fires on a rootkit-compromised image. We rewrote the trigger logic: empty malfind on a system where psscan finds 90+ processes is definitionally suspicious and triggers the psxview diff path.
+**The self-correction trigger.** Early versions only triggered self-correction if malfind output contained "Process:" — which never fires on a rootkit-compromised image because malfind is also suppressed. New trigger logic: empty malfind on a system where psscan finds 90+ processes is definitionally anomalous. The agent now reports this explicitly as a VAD walk suppression IOC.
 
-**The plaso path mismatch.** The disk agent was calling log2timeline with a hardcoded `/tmp/timeline.plaso` in the registry but checking for the file at `outputCSV + ".plaso"` — a path that never existed. Fixed by calling SafeExec directly with explicit `--storage-file` arg.
+**Gemini type system.** Go's type checker rejects assigning `genai.FunctionResponse` to a variable declared as `genai.Text`. Required declaring the loop message variable as `genai.Part` — the interface both types implement — to allow the agentic loop to work correctly with Gemini.
 
-**Gemini type system.** Go's type system rejects assigning `genai.FunctionResponse` to a variable declared as `genai.Text`. Required declaring the current message as `genai.Part` (the interface both implement) to allow the agentic loop to work with Gemini.
+**plaso path mismatch.** The disk agent called log2timeline using a hardcoded output path from the registry entry, but then checked for the plaso file at a different computed path — a CONFIRMED check that always failed silently. Fixed by calling `SafeExec` directly with an explicit `--storage-file` argument, bypassing the registry path entirely.
+
+**The final report problem.** Even with real tool data, Claude would write "all tools returned empty" in the final report. The root cause: by iteration 6, tool results from iteration 1 had scrolled out of effective attention. Fixed with pre-triage injection — the key facts are in the first message, not buried in tool results from 5 iterations ago.
 
 ---
 
 ## What We Learned
 
-**Architectural enforcement beats prompt engineering.** Every hour spent making Go wrappers type-safe saved ten hours of fighting hallucinations. The LLM does not need to be told not to modify evidence if the tool registry literally has no write operations.
+**Architectural enforcement beats prompt engineering every time.** Every hour spent making Go wrappers type-safe saved ten hours of fighting hallucinations and prompt injection.
 
-**Empty output is a finding.** A rootkit that hides processes produces empty pslist. Treating empty tool output as "no findings" is forensically wrong — it should be treated as active anti-forensics. This realization changed the entire memory agent design.
+**Empty tool output is a forensic finding, not a failure.** A rootkit that hides processes produces empty pslist. Treating empty output as "no findings" is forensically wrong and will cause an analyst to miss the most important IOC in the image.
 
-**Pre-inject facts, don't hope the LLM remembers.** Claude can receive 8,000 characters of real process data in iteration 1 and still write "tools returned nothing" in iteration 6. The solution is not better prompting — it is running the key tools in Go before the loop starts and embedding the parsed results as confirmed facts.
+**Pre-inject facts — don't hope the LLM remembers.** The LLM does not reliably recall data from five iterations ago. The solution is not better prompting. It is running key tools in Go before the loop starts and making the results part of the system context.
+
+**Build the benchmark first.** We built the accuracy harness after the agent. We should have built it first. Knowing what "correct" looks like from the start would have shortened Phase 3 significantly.
 
 ---
 
 ## What's Next
 
-- **Disk triage against the SRL-2018 file server snapshot** — the `base-file-snapshot5.7z` disk image has MFT artefacts and registry hives to parse
-- **YARA against memory** — scan the raw memory image with Cobalt Strike and Mimikatz signatures for pattern-based confirmation
-- **Live endpoint integration** — connect the MCP server to a SIEM or remote endpoint for real-time triage
-- **Cross-image correlation** — run memory agents on all 7 SRL-2018 hosts simultaneously and correlate findings across the enterprise
-- **Persistent learning loop** — write failures to `progress.json` so the agent learns from previous runs on the same case
-
----
-
-## Built With
-
-- **Go 1.22** — MCP server, all wrappers, agents, validators, correlator
-- **Anthropic Claude Sonnet 4.6** — primary AI engine
-- **Google Gemini 2.5 Flash Lite** — failover engine
-- **SANS SIFT Workstation** — forensic toolchain (Volatility 3, TSK, Plaso, RegRipper, YARA, hashdeep)
-- **github.com/mark3labs/mcp-go** — MCP server framework
-- **github.com/liushuangls/go-anthropic** — Anthropic Go client
-- **github.com/google/generative-ai-go** — Gemini Go client
+- **Disk triage against SRL-2018 file server snapshot** — the `base-file-snapshot5.7z` disk image contains MFT artefacts, registry hives, and prefetch files for full timeline correlation
+- **YARA against raw memory pages** — scan the entire memory image with Cobalt Strike, Mimikatz, and DKOM rootkit signatures for pattern-based confirmation of findings
+- **Cross-image correlation** — run memory agents on all 7 SRL-2018 hosts simultaneously and correlate findings across the enterprise to map the full attacker lateral path
+- **Live SIEM integration** — connect the MCP server to a SIEM or EDR for real-time autonomous triage on live endpoints
+- **Persistent learning loop** — write session failures to `progress.json` so the agent learns from previous runs on the same case and improves iteration over iteration

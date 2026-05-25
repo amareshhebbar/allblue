@@ -24,7 +24,7 @@
 
 ## What Is This
 
-LogPoseSIFT is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to the SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go**.
+LogPoseSIFT is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to thze SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go**.
 
 The core design principle: **the LLM cannot run shell commands**. It can only call typed Go functions. The MCP server is the security boundary — architectural enforcement, not prompt-based rules.
 
@@ -35,6 +35,14 @@ On the SRL-2018 APT dataset (a documented real-world intrusion with a DKOM rootk
 - Ran fully autonomously across **6 agentic iterations** with a self-correction sequence that detected DKOM rootkit hiding
 
 ---
+
+## Evidence & Results
+
+| Document | Description |
+|---|---|
+| [Screenshots →](docs/SCREENSHOTS.md) | 5 annotated screenshots covering security boundary, real APT findings, self-correction, benchmark, and audit trail |
+| [Demo Video →](docs/VIDEO.md) | 5-minute screencast with narration — live triage on SRL-2018 APT evidence |
+| [Live Results →](docs/RESULT.md) | Full output from actual triage run — process findings, C2 connections, rootkit detection |
 
 ## Quickstart (SIFT Workstation)
 
