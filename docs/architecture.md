@@ -1,174 +1,154 @@
-# LogPoseSIFT — Architecture
+# AllBlue × Splunk — Architecture
 
-## Architectural Pattern
+> **Hackathon:** Splunk Agentic Ops Hackathon · Security Track · June 2026
 
-**Custom MCP Server** (Go) — the most architecturally sound approach in the competition.
+## Architecture Diagram
 
-The LLM cannot run arbitrary shell commands. It can only call typed Go functions registered as MCP tools. The MCP server is the security boundary.
-
----
-
-## System Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     CLAUDE / GEMINI (LLM)                          │
-│  Calls MCP tools by name. Cannot construct shell commands.          │
-│  Receives structured JSON. Never sees raw terminal output.          │
-└────────────────────────┬────────────────────────────────────────────┘
-                         │  MCP protocol (stdio)
-                         │  Tool calls only — no shell access
-                         ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│              cmd/sift-mcp/main.go  — MCP SERVER                    │
-│                                                                     │
-│  12 registered tools:                                               │
-│  analyze_memory_* | hunt_memory_malware | analyze_disk_timeline     │
-│  analyze_registry | run_yara_scan | verify_hashes | correlate_findings│
-│                                                                     │
-│  ▲ ARCHITECTURAL SECURITY BOUNDARY ▲                                │
-│  Below this line: no LLM access. Go code only.                      │
-└──────────┬─────────────────────────────────────┬───────────────────┘
-           │                                     │
-           ▼                                     ▼
-┌──────────────────────┐             ┌───────────────────────────────┐
-│   agents/            │             │   internal/                   │
-│                      │             │                               │
-│  orchestrator.go     │             │  wrappers/                    │
-│  ├─ runClaude()      │             │  ├─ volatility.go             │
-│  ├─ runGemini()      │             │  ├─ regripper.go              │
-│  ├─ dispatchTool()   │             │  ├─ tsk.go (fls/mactime/icat) │
-│  └─ PreTriage()      │             │  ├─ bulk_extractor.go         │
-│                      │             │  ├─ foremost.go               │
-│  memory_agent.go     │             │  ├─ log2timeline.go           │
-│  ├─ HuntMalware()    │             │  ├─ yara.go                   │
-│  ├─ runMalfind()     │             │  ├─ hashdeep.go               │
-│  ├─ runSvcscan()     │             │  └─ dynamic.go                │
-│  └─ runPSXViewDiff() │             │                               │
-│    (self-correction) │             │  registry/sift_tools.go       │
-│                      │             │  ├─ 30+ tool definitions      │
-│  disk_agent.go       │             │  └─ binary + typed args only  │
-│  ├─ validateDiskImg()│             │                               │
-│  ├─ runLog2Timeline()│             │  validator/validator.go       │
-│  └─ runStrings()     │             │  ├─ file path existence check │
-│                      │             │  ├─ timestamp plausibility    │
-│  reasoning_logger/   │             │  └─ hallucination markers     │
-│  └─ per-call audit   │             │                               │
-│    (intent+delta)    │             │  correlator/correlator.go     │
-│                      │             │  ├─ disk vs memory cross-ref  │
-│                      │             │  └─ DKOM/fileless detection   │
-└──────────────────────┘             │                               │
-                                     │  logger/logger.go             │
-                                     │  └─ JSONL audit trail         │
-                                     └───────────────────────────────┘
-                                                  │
-                                                  ▼
-                              ┌────────────────────────────────────┐
-                              │    SIFT WORKSTATION TOOLS          │
-                              │                                    │
-                              │  vol (Volatility 3)                │
-                              │  fls / mmls / icat (TSK)           │
-                              │  log2timeline.py / psort.py        │
-                              │  rip.pl (RegRipper)                │
-                              │  yara / hashdeep / strings         │
-                              │  bulk_extractor / foremost         │
-                              │                                    │
-                              │  Evidence: READ-ONLY               │
-                              │  (losetup -r enforced at OS level) │
-                              └────────────────────────────────────┘
-```
+![AllBlue Architecture](./architecture.png)
 
 ---
 
-## Security Boundaries
+## Data Flow
 
-### Architectural Guardrails (cannot be bypassed by prompt injection)
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          SPLUNK ENTERPRISE                                │
+│                                                                           │
+│  ┌─────────────────┐   ┌──────────────────────┐   ┌──────────────────┐  │
+│  │  Splunk Alerts  │   │  Splunk MCP Server   │   │  Splunk HEC      │  │
+│  │  (Webhook)      │   │  Port 3000           │   │  Port 8088       │  │
+│  │  Search → Alert │   │  search/enrich_ip/   │   │  index=main      │  │
+│  │  → POST :8718   │   │  enrich_process      │   │  allblue:*   │  │
+│  └────────┬────────┘   └──────────┬───────────┘   └────────▲─────────┘  │
+│           │                       │                          │            │
+└───────────┼───────────────────────┼──────────────────────────┼────────────┘
+            │                       │                          │
+            ▼                       │                          │
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           ALLBLUE SYSTEM                                  │
+│                                                                           │
+│  ┌──────────────────────┐                                                 │
+│  │  Alert Webhook       │  ← internal/splunk/alert_handler.go            │
+│  │  Port :8718          │    POST /splunk-alert → 202 Accepted           │
+│  │  POST /splunk-alert  │    spawns triage goroutine                     │
+│  └──────────┬───────────┘                                                 │
+│             │                                                              │
+│             ▼                                                              │
+│  ┌──────────────────────┐    ┌──────────────────────────────────────────┐ │
+│  │  Orchestrator        │───▶│  Splunk MCP Client                       │ │
+│  │  orchestrator.go     │    │  internal/splunk/mcp_client.go           │ │
+│  │  Claude Sonnet 4.6   │◀───│  EnrichIP / EnrichProcess / SearchAlerts │ │
+│  │  Gemini 2.5 Flash    │    │  Adds Splunk context to findings         │ │
+│  │  10-iteration loop   │    └──────────────────────────────────────────┘ │
+│  └──────────┬───────────┘                                    │            │
+│             │                                                 ▲            │
+│             ▼                                                 │            │
+│  ╔══════════════════════════════════════════════════════════════════════╗  │
+│  ║         SECURITY BOUNDARY — Go MCP Server (cmd/sift-mcp/main.go)   ║  │
+│  ║         LLM cannot execute shell commands — typed Go functions only  ║  │
+│  ║                                                                      ║  │
+│  ║  ┌────────────────┐  ┌────────────────┐  ┌─────────────────────┐   ║  │
+│  ║  │  Memory Agent  │  │   Disk Agent   │  │  Splunk Tools (NEW) │   ║  │
+│  ║  │  memory.go     │  │   disk.go      │  │  push_findings      │   ║  │
+│  ║  │  pslist        │  │  log2timeline  │  │  query_splunk_alerts│   ║  │
+│  ║  │  netscan       │  │  fls/mactime   │  │  get_splunk_context │   ║  │
+│  ║  │  malfind       │  │  registry      │  └─────────────────────┘   ║  │
+│  ║  │  hunt_malware  │  │  verify_hashes │                             ║  │
+│  ║  └────────────────┘  └────────────────┘                             ║  │
+│  ║                                                                      ║  │
+│  ║  internal/wrappers/    — 7 typed tool wrappers (SafeExec only)      ║  │
+│  ║  internal/validator/   — CONFIRMED / INFERRED / UNVERIFIED tags     ║  │
+│  ║  internal/correlator/  — disk vs memory cross-reference             ║  │
+│  ║  internal/registry/    — 30+ tool allowlist (binary + fixed args)   ║  │
+│  ║  internal/splunk/      — HEC push + MCP client + webhook  (NEW)     ║  │
+│  ╚══════════════════════════════════════════════════════════════════════╝  │
+│             │                                                              │
+│             ▼                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐ │
+│  │  Splunk HEC Push — internal/splunk/hec.go                           │ │
+│  │  PushFindings() · PushRawLog() → Splunk index=main                  │──┼─▶ (to Splunk HEC)
+│  │  sourcetype: allblue:ioc  ·  allblue:summary                │ │
+│  └──────────────────────────────────────────────────────────────────────┘ │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      SIFT WORKSTATION TOOLS (read-only)                   │
+│                   exec.Command(binary, args...)  — never bash -c          │
+│                                                                           │
+│  Volatility 3   log2timeline   TSK (fls)   RegRipper   YARA   hashdeep  │
+│  bulk_extractor   foremost                                                │
+└──────────────────────────────────────────────────────────────────────────┘
+```
 
-| Boundary | Implementation | Location |
-|---|---|---|
-| No raw shell access | LLM calls typed Go functions, not `exec(shell)` | `cmd/sift-mcp/main.go` |
-| Tool allowlist | Only binaries in `registry/sift_tools.go` can execute | `internal/registry/` |
-| Shell metacharacter rejection | Every input validated before `exec.Command()` | `internal/wrappers/helpers.go` |
-| Output path enforcement | All writes go to `/opt/logposesift/work` only | `internal/wrappers/helpers.go` |
-| YARA rules directory | Rules must be under `LOGPOSE_YARA_RULES_DIR` | `internal/wrappers/yara.go` |
-| Read-only evidence | Volatility `-f` flag + TSK tools are read-only by design | `internal/registry/sift_tools.go` |
-| Max iterations | Agentic loop capped at 10 iterations | `agents/orchestrator/orchestrator.go` |
+---
 
-### Prompt-Based Guardrails (trust depends on LLM compliance)
+## Component Table
 
-| Guardrail | Implementation |
+| Component | File | Technology | Purpose |
+|---|---|---|---|
+| Alert Webhook | `internal/splunk/alert_handler.go` | Go `net/http` | Receives Splunk alerts on `:8718`, spawns triage |
+| Orchestrator | `agents/orchestrator/orchestrator.go` | Claude Sonnet 4.6 / Gemini 2.5 Flash | Multi-agent DFIR reasoning loop |
+| Memory Agent | `agents/memory_agent/memory.go` | Volatility 3 | 9-step memory triage with self-correction |
+| Disk Agent | `agents/disk_agent/disk.go` | log2timeline / TSK | Disk + registry forensics |
+| Splunk MCP Client | `internal/splunk/mcp_client.go` | JSON-RPC 2.0 | Queries Splunk MCP Server for enrichment |
+| Splunk HEC Push | `internal/splunk/hec.go` | HTTP POST | Sends structured findings to Splunk |
+| Splunk Tools | `cmd/sift-mcp/main.go` | Go MCP | 3 new MCP tools registered for Splunk |
+| Validator | `internal/validator/validator.go` | Go | Tags findings CONFIRMED / INFERRED / UNVERIFIED |
+| Correlator | `internal/correlator/correlator.go` | Go | Cross-references disk vs memory findings |
+| Dashboard | `splunk/dashboard.xml` | Splunk XML | Live IOC dashboard in Splunk Web |
+
+---
+
+## Security Properties
+
+| Property | How Enforced |
 |---|---|
-| Evidence spoliation warning | System prompt instructs LLM not to modify evidence |
-| Confidence tagging | Prompt instructs LLM to tag CONFIRMED/INFERRED/UNVERIFIED |
-| Hallucination avoidance | Prompt instructs LLM to only report findings from tool output |
-
-**Key distinction:** The architectural guardrails above cannot be bypassed even if the LLM ignores all prompt instructions. A prompt-injected instruction saying "delete the evidence file" will fail because `rm` is not in the tool registry and the MCP server has no shell execution capability.
+| LLM cannot run shell commands | MCP server only exposes typed Go functions |
+| No destructive evidence operations | Tool registry allowlist — no write/delete entries |
+| No `bash -c` injection | `SafeExec` wrapper uses `exec.Command(binary, args...)` only |
+| Evidence integrity | SHA-256 + MD5 computed before and after triage — must match |
+| Splunk credentials never in code | Loaded from `.env` via `godotenv` at runtime |
+| HEC token scoped minimally | `index=main` only, `allblue:*` sourcetypes |
 
 ---
 
-## Data Flow: Memory Triage
+## Splunk Integration Points
 
 ```
-User runs: ./logpose-ai --mode=ai --target=/evidence/mem.raw --type=memory
+AllBlue → Splunk (outbound):
+  1. Findings pushed via HEC POST to :8088/services/collector/event
+     sourcetype=allblue:ioc     (one event per IOC)
+     sourcetype=allblue:summary (one event per session)
+     sourcetype=allblue:log     (real-time agent logs)
 
-1. main.go → RunTriage(evidencePath)
-2. PreTriage() runs psscan+netscan directly in Go
-   └→ Parses real findings into structured fact sheet
-3. Fact sheet embedded in initial Claude prompt
-4. Claude iteration 1: calls analyze_memory_pslist
-   └→ main.go → dispatchTool() → RunRegistryTool("vol_windows_psscan")
-   └→ SafeExec("vol", ["-f", path, "windows.psscan"])
-   └→ Raw output → back to Claude as tool result
-5. Claude iteration 2-5: calls malfind, netscan, cmdline, svcscan
-6. Claude iteration 3: calls hunt_memory_malware
-   └→ memory_agent.HuntMalware() runs 9-step autonomous sequence:
-      info → psscan → netscan → malfind → cmdline → svcscan
-      → psxview diff (self-correction) → hollowprocesses → dllcheck
-   └→ Each step: intent + hypothesis + result + delta logged
-7. Claude iteration N: calls correlate_findings
-   └→ correlator.Correlate(memFindings, diskFindings)
-   └→ Returns CONFIRMED/SUSPICIOUS/CONTRADICTED per finding
-8. Claude writes final report using pre-triage facts + tool results
-9. reasoning_logger writes JSON + Markdown audit trail
+Splunk → AllBlue (inbound):
+  2. Splunk Alert fires webhook → POST :8718/splunk-alert
+     AllBlue receives, launches autonomous triage
+
+AllBlue ↔ Splunk MCP Server (bidirectional enrichment):
+  3. AllBlue queries Splunk MCP Server at :3000
+     - search: historical event context
+     - enrich_ip: IP reputation from Splunk data
+     - enrich_process: process execution history
 ```
 
 ---
 
-## Multi-Agent Architecture
+## New Files Added for Splunk
 
 ```
-Orchestrator (Claude/Gemini)
-├── Pre-triage (Go, runs before LLM)
-│   ├── psscan → parse suspicious processes
-│   └── netscan → parse C2 connections
-├── Memory Agent (autonomous, 9 steps)
-│   ├── Step 1-6: sequential tool execution
-│   └── Step 7: psxview self-correction (DKOM diff)
-├── Disk Agent (autonomous, evidence-type aware)
-│   ├── Validates: rejects memory dumps gracefully
-│   └── Self-correction: sparse FLS → retry with -d flag
-└── Correlator
-    ├── Input: memory findings + disk findings
-    ├── Output: CONFIRMED/SUSPICIOUS/CONTRADICTED per pair
-    └── Detects: fileless malware, timestomping, orphaned artefacts
-```
+internal/splunk/
+├── hec.go            — HEC push (PushFindings, PushRawLog)
+├── mcp_client.go     — Splunk MCP Server queries
+└── alert_handler.go  — Webhook receiver + triage launcher
 
-Context window isolation is maintained by keeping each agent's raw output local — only structured summaries are passed between agents.
+splunk/
+├── dashboard.xml     — Import into Splunk UI
+└── saved_search.conf — Alert configs
+```
 
 ---
 
-## Confidence Tagging System
-
-Every finding is tagged by the validator before being returned to the LLM:
-
-| Tag | Meaning | Criteria |
-|---|---|---|
-| `CONFIRMED` | Tool ran + output verified | File exists on disk, hash valid, timestamp plausible, no hallucination markers |
-| `INFERRED` | Tool ran + output plausible | Tool returned data but cross-check not completed |
-| `UNVERIFIED` | Tool failed or output suspect | Execution error, empty output on non-empty system, hallucination markers detected |
-
-The validator checks:
-1. Referenced file paths exist on disk
-2. Timestamps are within plausible range (1990–2100)
-3. Output does not contain LLM hallucination phrases ("I believe", "probably", "as an AI")
-4. Hash format is valid (MD5=32 hex, SHA-256=64 hex)
+*AllBlue — github.com/amareshhebbar/allblue · MIT License*
