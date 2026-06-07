@@ -12,11 +12,11 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/gvamaresh/logposesift/agents/disk_agent"
-	"github.com/gvamaresh/logposesift/agents/memory_agent"
-	"github.com/gvamaresh/logposesift/agents/orchestrator"
-	"github.com/gvamaresh/logposesift/internal/correlator"
-	"github.com/gvamaresh/logposesift/internal/wrappers"
+	"github.com/gvamaresh/allblue/agents/disk_agent"
+	"github.com/gvamaresh/allblue/agents/memory_agent"
+	"github.com/gvamaresh/allblue/agents/orchestrator"
+	"github.com/gvamaresh/allblue/internal/correlator"
+	"github.com/gvamaresh/allblue/internal/wrappers"
 )
 
 func main() {
@@ -42,9 +42,9 @@ func main() {
 }
 
 func runMCPServer() {
-	fmt.Println("[*] Initializing LogPoseSIFT Custom MCP Server v1.1...")
+	fmt.Println("[*] Initializing AllBlue Custom MCP Server v1.1...")
 
-	s := server.NewMCPServer("LogPoseSIFT-Engine", "1.1.0", server.WithLogging())
+	s := server.NewMCPServer("AllBlue-Engine", "1.1.0", server.WithLogging())
 
 	mustStr := func(args map[string]interface{}, key string) (string, error) {
 		v, ok := args[key]
