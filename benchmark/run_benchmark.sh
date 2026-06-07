@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LogPoseSIFT Accuracy Benchmark
+# AllBlue Accuracy Benchmark
 # Runs the agent against the SRL-2018 APT dataset and scores findings
 # against documented ground truth.
 #
@@ -31,7 +31,7 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; NC='\033[0m'; BOLD='\033[1m'
 
 echo -e "${BOLD}════════════════════════════════════════════════${NC}"
-echo -e "${BOLD}   LogPoseSIFT Accuracy Benchmark Harness${NC}"
+echo -e "${BOLD}   AllBlue Accuracy Benchmark Harness${NC}"
 echo -e "${BOLD}════════════════════════════════════════════════${NC}"
 echo ""
 
@@ -106,7 +106,7 @@ TRUTH
 
 # ── Run the agent ─────────────────────────────────────────────
 run_agent() {
-    echo -e "${BLUE}[*] Running LogPoseSIFT against evidence...${NC}"
+    echo -e "${BLUE}[*] Running AllBlue against evidence...${NC}"
     echo -e "    Evidence: $EVIDENCE_PATH"
     echo -e "    Type: $EVIDENCE_TYPE"
     echo ""
@@ -299,7 +299,7 @@ PYEOF
 
     # ── Write Markdown report ────────────────────────────────────
     cat > "$OUTPUT_MD" << MDEOF
-# LogPoseSIFT Accuracy Report
+# AllBlue Accuracy Report
 
 **Dataset:** SRL-2018 Compromised Enterprise Network  
 **Evidence:** \`$EVIDENCE_PATH\`  
