@@ -1,82 +1,94 @@
 <div align="center">
-  <h1>LogPoseSIFT</h1>
-  <p>
-    <strong>Autonomous Multi-Agent DFIR Orchestrator</strong><br />
-    100% precision · 0 hallucinations · Custom Go MCP Server · Real APT dataset validated
-  </p>
-  <p>
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/blob/main/docs/architecture.md">Architecture</a> ·
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/blob/main/docs/accuracy_report.md">Accuracy Report</a> ·
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/blob/main/docs/dataset.md">Dataset</a> ·
-    <a href="https://github.com/amareshhebbar/LogPoseSIFT/issues">Issues</a>
-  </p>
-  <p>
-    <img src="https://img.shields.io/github/last-commit/amareshhebbar/LogPoseSIFT?style=flat-square&color=005571" />
-    <img src="https://img.shields.io/badge/Language-Go-005571?style=flat-square&logo=go" />
-    <img src="https://img.shields.io/badge/Precision-100%25-005571?style=flat-square" />
-    <img src="https://img.shields.io/badge/Recall-92.8%25-005571?style=flat-square" />
-    <img src="https://img.shields.io/badge/Hallucinations-0-005571?style=flat-square" />
-    <img src="https://img.shields.io/github/license/amareshhebbar/LogPoseSIFT?style=flat-square&color=005571" />
-  </p>
+
+# AllBlue
+
+**Autonomous Multi-Agent DFIR Orchestrator × Splunk**
+
+Splunk alerts trigger autonomous forensic triage → findings pushed to Splunk as structured IOC events → real-time DFIR intelligence dashboard.
+
+[![Last Commit](https://img.shields.io/github/last-commit/amareshhebbar/allblue?style=flat-square&color=005571)](https://github.com/amareshhebbar/allblue/commits/main)
+[![Language: Go](https://img.shields.io/badge/Language-Go-005571?style=flat-square&logo=go)](https://github.com/amareshhebbar/allblue)
+[![Splunk](https://img.shields.io/badge/Splunk-HEC%20%2B%20MCP-005571?style=flat-square)](https://splunk.devpost.com)
+[![Precision: 100%](https://img.shields.io/badge/Precision-100%25-005571?style=flat-square)]()
+[![Recall: 92.8%](https://img.shields.io/badge/Recall-92.8%25-005571?style=flat-square)]()
+[![Hallucinations: 0](https://img.shields.io/badge/Hallucinations-0-005571?style=flat-square)]()
+[![License: MIT](https://img.shields.io/github/license/amareshhebbar/allblue?style=flat-square&color=005571)](LICENSE)
+
+[Architecture](docs/architecture.md) · [Accuracy Report](docs/accuracy_report.md) · [Dataset](docs/dataset.md) · [Issues](https://github.com/amareshhebbar/allblue/issues)
+
+> **AI Engine:** Claude Sonnet 4.6 (primary) · Gemini 2.5 Flash (automatic failover). All benchmark results produced using Claude.
+
 </div>
 
+---
 
-> **AI Engine:** Designed for Claude Sonnet 4.6 (primary) with Gemini 2.5 Flash as automatic failover. All benchmark results and demo video were produced using Claude. Gemini fallback is functional but untested against the full SRL-2018 dataset.
+## What Is AllBlue
+
+AllBlue is an autonomous DFIR triage system that connects Claude (with Gemini failover) to the SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go** — now fully integrated with **Splunk** as both a trigger source and findings destination.
+
+**Core design principle:** The LLM cannot run shell commands. It can only call typed Go functions. The MCP server is the security boundary — architectural enforcement, not prompt-based rules.
+
+**Splunk integration:** Splunk alerts automatically trigger AllBlue triage sessions. All findings are pushed back to Splunk via HEC as structured events. The Splunk MCP Server is queried mid-triage to enrich findings with historical context.
+
+Validated on the SRL-2018 APT dataset (real-world intrusion with DKOM rootkit, C2 beaconing, lateral movement):
+
+- Identified **13 of 14 documented IOCs** — C2 IP, all malicious processes, rootkit confirmed
+- **100% precision** — zero hallucinated findings
+- **6 agentic iterations** with self-correction that autonomously detected DKOM rootkit hiding
 
 ---
 
-## What Is This
+## How Splunk Integration Works
 
-LogPoseSIFT is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to thze SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go**.
+```
+1. Splunk Alert fires  →  POST webhook to AllBlue :8718/splunk-alert
+2. AllBlue launches    →  autonomous multi-agent DFIR triage
+3. Agents query        →  Splunk MCP Server for IP/process enrichment
+4. Findings pushed     →  Splunk HEC as allblue:ioc events
+5. Dashboard shows     →  live IOCs, threat scores, session logs
+```
 
-The core design principle: **the LLM cannot run shell commands**. It can only call typed Go functions. The MCP server is the security boundary — architectural enforcement, not prompt-based rules.
-
-On the SRL-2018 APT dataset (a documented real-world intrusion with a DKOM rootkit, C2 beaconing, and lateral movement), LogPoseSIFT:
-
-- Identified **13 of 14 documented IOCs** including the external C2 IP, all malicious processes, and the rootkit itself
-- Achieved **100% precision** — zero hallucinated findings
-- Ran fully autonomously across **6 agentic iterations** with a self-correction sequence that detected DKOM rootkit hiding
+Eligible prizes:
+- **Best of Security** — $3,000
+- **Best Use of Splunk MCP Server** — $1,000 bonus
+- **Grand Prize** — $7,000
 
 ---
 
-## Evidence & Results
-
-| Document | Description |
-|---|---|
-| [Screenshots →](docs/SCREENSHOTS.md) | 5 annotated screenshots covering security boundary, real APT findings, self-correction, benchmark, and audit trail |
-| [Demo Video →](docs/VIDEO.md) | 5-minute screencast with narration — live triage on SRL-2018 APT evidence |
-| [Live Results →](docs/RESULT.md) | Full output from actual triage run — process findings, C2 connections, rootkit detection |
-
-## Quickstart (SIFT Workstation)
+## Quickstart
 
 ```bash
 # 1. Clone
-git clone https://github.com/amareshhebbar/LogPoseSIFT
-cd LogPoseSIFT
+git clone https://github.com/amareshhebbar/allblue
+cd allblue
 
-# 2. Set API key
-echo "ANTHROPIC_API_KEY=sk-ant-your-key-here" > .env
+# 2. Configure
+cp .example.env .env
+# Edit .env — add your keys:
+#   ANTHROPIC_API_KEY=sk-ant-...
+#   SPLUNK_HEC_TOKEN=xxxx-xxxx-xxxx-xxxx
+#   SPLUNK_HEC_URL=http://localhost:8088
+#   SPLUNK_MCP_URL=http://localhost:3000
 
 # 3. Build
 go mod tidy
-go build -o logpose-ai ./cmd/sift-mcp/
+go build -o allblue-ai ./cmd/sift-mcp/
 
-# 4. Run MCP server (for use with Claude Desktop or Claude Code)
-./logpose-ai --mode=mcp
+# 4. Run — starts MCP server + Splunk webhook receiver
+./allblue-ai --mode=mcp
 
-# 5. Run autonomous triage on evidence
-./logpose-ai --mode=ai \
+# 5. Run autonomous triage with Splunk push
+./allblue-ai --mode=ai \
   --target=/path/to/evidence.img \
-  --type=memory        # or: disk | both
+  --type=memory \
+  --splunk-push=true
 ```
 
 ### Run Benchmark
 
 ```bash
-# Extract SRL-2018 evidence first
 7z x /path/to/base-hunt-memory.7z -o/tmp/evidence/
 
-# Run benchmark (scores against documented ground truth)
 chmod +x benchmark/run_benchmark.sh
 ./benchmark/run_benchmark.sh /tmp/evidence/base-hunt-memory.img memory
 ```
@@ -94,33 +106,41 @@ Recall:    92.86%
 
 ## Architecture
 
+![AllBlue Architecture](docs/architecture.png)
+
 ```
 Claude/Gemini (LLM)
        │ MCP calls only — no shell access
        ▼
 cmd/sift-mcp/main.go  ← SECURITY BOUNDARY
-       │ 12 typed MCP tools registered
+       │ 15 typed MCP tools (12 original + 3 new Splunk tools)
        │
-  ┌────┴────┐
-  │         │
-agents/   internal/
-  │         │
-  ├─ orchestrator    ├─ wrappers (7 typed tool wrappers)
-  ├─ memory_agent    ├─ validator (CONFIRMED/INFERRED/UNVERIFIED)
-  ├─ disk_agent      ├─ correlator (disk vs memory cross-ref)
-  └─ reasoning_logger└─ registry (tool allowlist, 30+ entries)
+  ┌────┴────────────────────┐
+  │                         │
+agents/                 internal/
+  │                         │
+  ├─ orchestrator        ├─ wrappers/      (7 typed tool wrappers)
+  ├─ memory_agent        ├─ validator/     (CONFIRMED/INFERRED/UNVERIFIED)
+  ├─ disk_agent          ├─ correlator/    (disk vs memory cross-ref)
+  └─ reasoning_logger    ├─ registry/      (tool allowlist, 30+ entries)
+                         └─ splunk/        ← NEW
+                              ├─ hec.go          (push findings to Splunk)
+                              ├─ mcp_client.go   (query Splunk MCP Server)
+                              └─ alert_handler.go(receive Splunk webhooks)
        │
   SIFT Tools (read-only)
   vol / fls / log2timeline / rip.pl / yara / hashdeep
+       │
+  Splunk HEC → index=main → Dashboard
 ```
-
-The LLM calls MCP tools → Go dispatches to typed wrappers → wrappers call SIFT binaries via `exec.Command` (never `bash -c`) → output parsed to JSON → structured result returned to LLM.
 
 [Full architecture documentation →](docs/architecture.md)
 
 ---
 
-## MCP Tools (12 registered)
+## MCP Tools (15 registered)
+
+### Original DFIR Tools (12)
 
 | Tool | Category | What It Does |
 |---|---|---|
@@ -137,6 +157,24 @@ The LLM calls MCP tools → Go dispatches to typed wrappers → wrappers call SI
 | `verify_hashes` | Integrity | SHA-256/MD5 compute or audit against known-good |
 | `correlate_findings` | Analysis | Memory ↔ disk cross-reference, fileless/timestomp detection |
 
+### New Splunk Tools (3)
+
+| Tool | File | What It Does |
+|---|---|---|
+| `push_findings_to_splunk` | `internal/splunk/hec.go` | Sends all IOC findings to Splunk HEC as structured events |
+| `query_splunk_alerts` | `internal/splunk/mcp_client.go` | Queries Splunk MCP Server for recent security alerts |
+| `get_splunk_context` | `internal/splunk/mcp_client.go` | Enriches a finding with historical Splunk data (IP/process) |
+
+---
+
+## Evidence & Results
+
+| Document | Description |
+|---|---|
+| [Screenshots →](docs/SCREENSHOTS.md) | 5 annotated screenshots: security boundary, APT findings, self-correction, benchmark, audit trail |
+| [Demo Video →](docs/VIDEO.md) | Screencast with narration — live triage on SRL-2018 APT evidence |
+| [Live Results →](docs/RESULT.md) | Full output from actual triage run — process findings, C2 connections, rootkit detection |
+
 ---
 
 ## Self-Correction Demo
@@ -148,19 +186,17 @@ The memory agent's self-correction sequence (visible in terminal output):
   -> Tool: hunt_memory_malware
 
 [MemoryAgent] Starting autonomous memory triage...
-  ~ [MemoryAgent] vol_windows_info     | 805ms | INFERRED
-  ~ [MemoryAgent] vol_windows_pslist   | 31s   | INFERRED
+  ~ [MemoryAgent] vol_windows_info      | 805ms  | INFERRED
+  ~ [MemoryAgent] vol_windows_pslist    | 31s    | INFERRED
     ↳ DELTA: pslist returned only header — rootkit DKOM confirmed
-  ~ [MemoryAgent] analyze_memory_netscan | 30s  | INFERRED
-  ✓ [MemoryAgent] vol_windows_malfind  | 882ms | CONFIRMED
+  ~ [MemoryAgent] analyze_memory_netscan| 30s    | INFERRED
+  ✓ [MemoryAgent] vol_windows_malfind   | 882ms  | CONFIRMED
     ↳ DELTA: Empty malfind on 90+ process system = VAD hook = rootkit IOC
-  ✓ [MemoryAgent] vol_windows_cmdline  | 890ms | CONFIRMED
+  ✓ [MemoryAgent] vol_windows_cmdline   | 890ms  | CONFIRMED
     ↳ DELTA: Empty cmdline = process args hidden by rootkit
-  ~ [MemoryAgent] vol_windows_svcscan  | 1.2s  | INFERRED
-  ✓ [MemoryAgent] psxview_diff         | 2.1s  | CONFIRMED
-    ↳ DELTA: DKOM confirmed: 87 processes hidden from pslist, visible in psscan
-  ~ [MemoryAgent] hollowprocesses      | 1.8s  | INFERRED
-  ~ [MemoryAgent] vol_windows_dlllist  | 950ms | INFERRED
+  ~ [MemoryAgent] vol_windows_svcscan   | 1.2s   | INFERRED
+  ✓ [MemoryAgent] psxview_diff          | 2.1s   | CONFIRMED
+    ↳ DELTA: DKOM confirmed — 87 processes hidden from pslist, visible in psscan
 ```
 
 ---
@@ -169,11 +205,11 @@ The memory agent's self-correction sequence (visible in terminal output):
 
 All operations are **read-only** by architectural enforcement:
 
-- Volatility is called with `-f path` — read-only file access
-- TSK tools are read-only by design
-- No write, delete, or modify operations exist in the tool registry
-- `exec.Command("vol", args...)` — not `exec.Command("bash", "-c", input)`
-- SHA-256 + MD5 hashes computed at triage start, verified at end
+- Volatility called with `-f path` — read-only file access
+- TSK tools read-only by design
+- No write, delete, or modify operations in the tool registry
+- `exec.Command("vol", args...)` — never `exec.Command("bash", "-c", input)`
+- SHA-256 + MD5 computed at triage start, verified at end
 - Spoliation test: hash before/after full triage — identical
 
 ---
@@ -181,52 +217,56 @@ All operations are **read-only** by architectural enforcement:
 ## Project Structure
 
 ```
-LogPoseSIFT/
-├── cmd/sift-mcp/main.go                  # MCP server entry point — 12 typed tools registered
+allblue/
+├── cmd/sift-mcp/main.go                      # MCP server — 15 typed tools registered
 ├── agents/
 │   ├── orchestrator/
-│   │   ├── orchestrator.go               # Claude or Gemini dual engine, 10-iteration agentic loop
-│   │   └── findings_extractor.go         # Pre-triage Go parser — embeds facts before LLM starts
-│   ├── memory_agent/memory.go            # 9-step autonomous memory triage with self-correction
-│   ├── disk_agent/disk.go                # Evidence-type-aware disk triage, log2timeline pipeline
-│   └── reasoning_logger/reasoning_logger.go  # Analyst training loop — intent/hypothesis/delta per call
+│   │   ├── orchestrator.go                   # Claude/Gemini dual engine, 10-iteration loop
+│   │   └── findings_extractor.go             # Pre-triage Go parser
+│   ├── memory_agent/memory.go                # 9-step autonomous memory triage
+│   ├── disk_agent/disk.go                    # Disk triage, log2timeline pipeline
+│   └── reasoning_logger/reasoning_logger.go  # Intent/hypothesis/delta audit per call
 ├── internal/
-│   ├── wrappers/                         # 7 typed tool wrappers (no raw shell)
-│   │   ├── volatility.go                 # Volatility 3 memory forensics
-│   │   ├── regripper.go                  # Windows registry hive extraction
-│   │   ├── tsk.go                        # TSK: fls / mactime / icat
-│   │   ├── bulk_extractor.go             # Carved emails, URLs, credentials
-│   │   ├── foremost.go                   # File carving / recovery
-│   │   ├── log2timeline.go               # Plaso super-timeline pipeline
-│   │   ├── yara.go                       # YARA pattern matching (8 built-in APT rules)
-│   │   ├── hashdeep.go                   # SHA-256/MD5 evidence integrity
-│   │   ├── dynamic.go                    # Registry-driven tool executor
-│   │   ├── executor.go                   # SafeExec — exec.Command wrapper (never bash -c)
-│   │   └── helpers.go                    # Shell metachar guard, path validation, confidence consts
-│   ├── registry/sift_tools.go            # 30+ tool allowlist — binary + typed fixed args only
-│   ├── validator/validator.go            # Hallucination guard — CONFIRMED/INFERRED/UNVERIFIED
-│   ├── correlator/correlator.go          # Disk vs memory cross-reference, DKOM/fileless detection
-│   ├── logger/logger.go                  # JSONL structured audit trail per session
+│   ├── wrappers/                             # 7 typed tool wrappers (no raw shell)
+│   │   ├── volatility.go
+│   │   ├── regripper.go
+│   │   ├── tsk.go
+│   │   ├── bulk_extractor.go
+│   │   ├── foremost.go
+│   │   ├── log2timeline.go
+│   │   ├── yara.go
+│   │   ├── hashdeep.go
+│   │   ├── dynamic.go
+│   │   ├── executor.go                       # SafeExec — never bash -c
+│   │   └── helpers.go
+│   ├── splunk/                               # ← NEW for Splunk hackathon
+│   │   ├── hec.go                            # Push findings to Splunk HEC
+│   │   ├── mcp_client.go                     # Query Splunk MCP Server
+│   │   └── alert_handler.go                  # Receive Splunk webhook alerts
+│   ├── registry/sift_tools.go               # 30+ tool allowlist
+│   ├── validator/validator.go               # Hallucination guard
+│   ├── correlator/correlator.go             # Disk vs memory cross-ref
+│   ├── logger/logger.go                     # JSONL audit trail
 │   └── parsers/
-│       ├── plaso_parser.go               # Plaso timeline output parser
-│       └── vol_parser.go                 # Volatility output parser
+│       ├── plaso_parser.go
+│       └── vol_parser.go
+├── splunk/                                   # ← NEW
+│   ├── dashboard.xml                         # Import into Splunk UI
+│   └── saved_search.conf                     # Alert configs
 ├── benchmark/
-│   ├── run_benchmark.sh                  # Accuracy harness — TP/FP/FN against ground truth
-│   ├── ground_truth/
-│   │   └── srl2018_apt_ground_truth.json # 14 documented IOCs from SRL-2018 APT case
-│   └── results/                          # Scorecard JSON + Markdown per run
-├── assets/                               # Screenshots for documentation
+│   ├── run_benchmark.sh
+│   ├── ground_truth/srl2018_apt_ground_truth.json
+│   └── results/
 ├── docs/
-│   ├── architecture.md                   # Security boundaries + full data flow diagram
-│   ├── accuracy_report.md                # 100% precision, 92.86% recall, 0 hallucinations
-│   ├── dataset.md                        # SRL-2018 dataset documentation + reproducibility
-│   ├── devpost_story.md                  # Full project story for Devpost submission
-│   ├── SCREENSHOTS.md                    # 5 annotated evidence screenshots
-│   ├── VIDEO.md                          # Demo video + timestamps + YouTube description
-│   └── RESULT.md                         # Full live triage output from SRL-2018 run
-├── data/                                 # Evidence files — not committed to git
-├── logs/                                 # Session logs — JSONL + Markdown per triage run
-├── logpose-ai                            # Compiled binary
+│   ├── architecture.md                       # Full architecture + diagram
+│   ├── architecture.png                      # Architecture diagram (PNG)
+│   ├── accuracy_report.md
+│   ├── dataset.md
+│   ├── devpost_story.md
+│   ├── SCREENSHOTS.md
+│   ├── VIDEO.md
+│   └── RESULT.md
+├── .example.env
 ├── go.mod
 ├── go.sum
 └── README.md
@@ -257,4 +297,6 @@ MIT — see [LICENSE](LICENSE)
 
 ## Built For
 
-[FIND EVIL! Hackathon](https://findevil.devpost.com/) — SANS Institute · April–June 2026
+[Splunk Agentic Ops Hackathon](https://splunk.devpost.com) — Security Track · June 2026
+
+Originally developed for [FIND EVIL! Hackathon](https://findevil.devpost.com/) — SANS Institute · April–June 2026

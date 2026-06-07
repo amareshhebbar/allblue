@@ -1,9 +1,9 @@
-# LogPoseSIFT — Demo Video
+# AllBlue — Demo Video
 
 ## Full Triage Demo
 
 <a href="https://youtu.be/s-zyl17KDTU">
-  <img src="../assets/Screenshot%20from%202026-05-25%2012-37-22.png" alt="LogPoseSIFT — Autonomous DFIR Agent | FIND EVIL Hackathon 2026" width="800">
+  <img src="../assets/Screenshot%20from%202026-05-25%2012-37-22.png" alt="AllBlue — Autonomous DFIR Agent | FIND EVIL Hackathon 2026" width="800">
 </a>
 
 > Click the thumbnail above to watch on YouTube
@@ -15,7 +15,7 @@
 
 | Timestamp | Section |
 |---|---|
-| `0:00` | Introduction — LogPoseSIFT, Amaresh Hebbar, FIND EVIL 2026 |
+| `0:00` | Introduction — AllBlue, Amaresh Hebbar, FIND EVIL 2026 |
 | `0:06` | Security boundary — Custom MCP Server, typed Go functions only |
 | `0:27` | Tool allowlist — 30+ SIFT tools registered, no shell access |
 | `0:49` | Evidence — SRL-2018 APT dataset, Windows 10 memory capture |

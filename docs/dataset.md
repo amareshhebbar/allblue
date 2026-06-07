@@ -1,4 +1,4 @@
-# LogPoseSIFT — Dataset Documentation
+# AllBlue — Dataset Documentation
 
 ## Primary Dataset: SRL-2018 Compromised Enterprise Network
 
@@ -53,7 +53,7 @@ Derived from:
 
 ---
 
-## How LogPoseSIFT Was Tested
+## How AllBlue Was Tested
 
 ```bash
 # Extract evidence
@@ -83,8 +83,8 @@ To reproduce this benchmark on the SANS SIFT Workstation:
 
 ```bash
 # 1. Clone and build
-git clone https://github.com/amareshhebbar/LogPoseSIFT
-cd LogPoseSIFT
+git clone https://github.com/amareshhebbar/allblue
+cd AllBlue
 go build -o logpose-ai ./cmd/sift-mcp/
 
 # 2. Set API key
@@ -103,4 +103,4 @@ Expected output: scorecard with 10+ true positives, 0 false positives.
 
 ## Dataset Integrity
 
-All evidence files include an `.md5` file for chain-of-custody verification. LogPoseSIFT computes SHA-256 hashes of evidence at triage start and records them in the session log. No evidence files are modified during analysis — all tool operations are read-only.
+All evidence files include an `.md5` file for chain-of-custody verification. AllBlue computes SHA-256 hashes of evidence at triage start and records them in the session log. No evidence files are modified during analysis — all tool operations are read-only.

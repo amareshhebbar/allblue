@@ -1,4 +1,4 @@
-# LogPoseSIFT — Project Story
+# AllBlue — Project Story
 
 ## Inspiration
 
@@ -6,17 +6,17 @@ The average attacker moves from initial access to domain control in **7 minutes*
 
 That gap is not a skill problem — it is a speed problem. Attackers have automated their kill chain. Defenders are still typing commands manually.
 
-I built LogPoseSIFT to close that gap. Not with a chatbot wrapper around existing tools, but with a genuinely autonomous agent that thinks like a DFIR analyst — forming hypotheses, running tools, catching its own mistakes, and producing findings that are traceable back to raw evidence.
+I built AllBlue to close that gap. Not with a chatbot wrapper around existing tools, but with a genuinely autonomous agent that thinks like a DFIR analyst — forming hypotheses, running tools, catching its own mistakes, and producing findings that are traceable back to raw evidence.
 
-The name comes from the *Log Pose* — the compass in One Piece that records and follows magnetic signatures to navigate unknown seas. LogPoseSIFT records the forensic signature of a compromise and navigates toward the truth.
+The name comes from the *Log Pose* — the compass in One Piece that records and follows magnetic signatures to navigate unknown seas. AllBlue records the forensic signature of a compromise and navigates toward the truth.
 
 ---
 
 ## What It Does
 
-LogPoseSIFT is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to the full SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go** — the most architecturally sound pattern available.
+AllBlue is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to the full SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go** — the most architecturally sound pattern available.
 
-Given a memory dump or disk image, LogPoseSIFT autonomously:
+Given a memory dump or disk image, AllBlue autonomously:
 
 - **Pre-triages in Go** before the LLM starts — running psscan and netscan directly, parsing real findings into a structured fact sheet embedded in the initial prompt. Claude cannot hallucinate what is already in its own context.
 - **Executes 12 typed MCP tools** across 6 categories (memory, disk, registry, YARA, hashing, correlation) in an agentic loop of up to 10 iterations.

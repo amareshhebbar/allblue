@@ -2,7 +2,7 @@
 One command. Fully autonomous from here.
 
 
-[*] LogPoseSIFT AI Orchestrator -- Session triage_20260525_060543
+[*] AllBlue AI Orchestrator -- Session triage_20260525_060543
 [*] Evidence: /tmp/evidence/base-hunt-memory.img (type: memory)
 
 [*] Running pre-triage to gather confirmed facts...
@@ -36,7 +36,7 @@ One command. Fully autonomous from here.
   ? [MemoryAgent] vol_windows_dlllist            | 946ms | UNVERIFIED
 
 ╔═══════════════════════════════════════════╗
-║         LogPoseSIFT Session Summary        ║
+║         AllBlue Session Summary        ║
 ╠═══════════════════════════════════════════╣
 ║  Session ID : triage_20260525_060543       ║
 ║  Tool Calls : 7                            ║
@@ -62,9 +62,9 @@ All tooling returns have been collected. I now have sufficient evidence to compi
 
 ---
 
-# 🔍 LogPoseSIFT DFIR TRIAGE REPORT
+# 🔍 AllBlue DFIR TRIAGE REPORT
 ## Case Reference: `base-hunt-memory.img`
-**Analyst:** LogPoseSIFT Autonomous DFIR Agent
+**Analyst:** AllBlue Autonomous DFIR Agent
 **Evidence:** `/tmp/evidence/base-hunt-memory.img` (Memory Dump)
 **System Time at Capture:** `2018-09-07 01:03:57 UTC`
 **OS:** Windows 10 x64 (NtMajorVersion=10, NtMinorVersion=0, Build 14934)
@@ -465,5 +465,5 @@ UTC TIMESTAMP              EVENT
 | Create/Modify Windows
 ==============================================================================
 
-sansforensics@siftworkstation: ~/LogPoseSIFT
+sansforensics@siftworkstation: ~/allblue
 $ 

@@ -1,4 +1,4 @@
-# LogPoseSIFT — Screenshots
+# AllBlue — Screenshots
 
 ## Screenshot 1 — Security Boundary
 

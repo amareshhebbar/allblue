@@ -1,4 +1,4 @@
-# LogPoseSIFT — Accuracy Report
+# AllBlue — Accuracy Report
 
 **Dataset:** SRL-2018 Compromised Enterprise Network (SANS DFIR Summit / HACKATHON-2026)  
 **Evidence:** `base-hunt-memory.img` (5.37 GB Windows 10 memory capture)  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-LogPoseSIFT achieved **100% precision** and **93% recall** on the SRL-2018 APT dataset with **zero hallucinations** — meaning every finding it reported was correct, and it correctly identified 13 of 14 documented IOCs from the ground truth.
+AllBlue achieved **100% precision** and **93% recall** on the SRL-2018 APT dataset with **zero hallucinations** — meaning every finding it reported was correct, and it correctly identified 13 of 14 documented IOCs from the ground truth.
 
 | Metric | Value |
 |---|---|
@@ -31,7 +31,7 @@ The SRL-2018 Compromised Enterprise Network scenario is a documented APT intrusi
 Evidence file: `base-hunt-memory.img` — a raw Windows 10 x64 memory capture taken during an active compromise. System time at capture: `2018-09-07 01:03:57 UTC`.
 
 ### Scoring Method
-The benchmark script (`benchmark/run_benchmark.sh`) runs LogPoseSIFT autonomously against the evidence, then greps the agent's final report for each documented IOC. Each IOC is scored as:
+The benchmark script (`benchmark/run_benchmark.sh`) runs AllBlue autonomously against the evidence, then greps the agent's final report for each documented IOC. Each IOC is scored as:
 
 - **True Positive (TP):** Agent correctly identified and reported the IOC
 - **False Negative (FN):** IOC exists in ground truth but agent did not report it
@@ -119,7 +119,7 @@ All operations are **read-only** by architectural enforcement:
 
 2. **Disk triage requires disk image:** log2timeline rejects memory dumps. When given a memory image as disk target, the disk agent gracefully detects this and skips disk tools rather than crashing.
 
-3. **netscan is slow (~30s):** Volatility's netscan plugin scans the full memory image. This is inherent to the tool, not a LogPoseSIFT issue.
+3. **netscan is slow (~30s):** Volatility's netscan plugin scans the full memory image. This is inherent to the tool, not a AllBlue issue.
 
 4. **psxview comparison:** The self-correction psxview diff runs but windows.psxview is deprecated in Volatility 3 in favour of `windows.malware.psxview`. Updated registry key added in v1.1.
 
