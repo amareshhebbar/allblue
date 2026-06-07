@@ -212,7 +212,7 @@ func (r *ReasoningLogger) PrintSummary() {
 	defer r.mu.Unlock()
 	s := r.buildSummary()
 	fmt.Printf("\n╔══════════════════════════════════════════════╗\n")
-	fmt.Printf("║      LogPoseSIFT Reasoning Chain Summary     ║\n")
+	fmt.Printf("║      AllBlue Reasoning Chain Summary     ║\n")
 	fmt.Printf("╠══════════════════════════════════════════════╣\n")
 	fmt.Printf("║  Session    : %-30s║\n", r.sessionID)
 	fmt.Printf("║  Tool Calls : %-30d║\n", s.TotalToolCalls)
@@ -253,7 +253,7 @@ func (r *ReasoningLogger) buildSummary() SessionSummary {
 
 func (r *ReasoningLogger) buildMarkdown(report SessionReport) string {
 	var sb strings.Builder
-	sb.WriteString("# LogPoseSIFT Reasoning Chain\n\n")
+	sb.WriteString("# AllBlue Reasoning Chain\n\n")
 	sb.WriteString(fmt.Sprintf("**Session:** `%s`  \n", report.SessionID))
 	sb.WriteString(fmt.Sprintf("**Evidence:** `%s` (%s)  \n", report.EvidencePath, report.EvidenceType))
 	sb.WriteString(fmt.Sprintf("**Duration:** %s → %s  \n\n", report.StartTime, report.EndTime))

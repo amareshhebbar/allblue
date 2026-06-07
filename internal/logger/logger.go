@@ -77,7 +77,7 @@ func Init(sessionID, logDir string) error {
 
 func Get() *Logger {
 	if globalLogger == nil {
-		_ = Init("fallback_"+time.Now().Format("20060102_150405"), "/tmp/logposesift_logs")
+		_ = Init("fallback_"+time.Now().Format("20060102_150405"), "/tmp/allblue_logs")
 	}
 	return globalLogger
 }
@@ -111,7 +111,7 @@ func (l *Logger) LogMessage(msg AgentMessage) {
 
 func (l *Logger) SessionSummary(confirmed, inferred, unverified, total int) {
 	fmt.Printf("\n╔═══════════════════════════════════════════╗\n")
-	fmt.Printf("║         LogPoseSIFT Session Summary        ║\n")
+	fmt.Printf("║         AllBlue Session Summary        ║\n")
 	fmt.Printf("╠═══════════════════════════════════════════╣\n")
 	fmt.Printf("║  Session ID : %-29s║\n", l.sessionID)
 	fmt.Printf("║  Tool Calls : %-29d║\n", total)

@@ -9,17 +9,17 @@ import (
 	"time"
 	"strings" 
 
-	"github.com/gvamaresh/logposesift/agents/disk_agent"
-	"github.com/gvamaresh/logposesift/agents/memory_agent"
-	"github.com/gvamaresh/logposesift/internal/correlator"
-	"github.com/gvamaresh/logposesift/internal/logger"
-	"github.com/gvamaresh/logposesift/internal/wrappers"
-	"github.com/gvamaresh/logposesift/agents/reasoning_logger"
-
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
 	"github.com/liushuangls/go-anthropic/v2"
 	"google.golang.org/api/option"
+
+	"github.com/gvamaresh/allblue/agents/disk_agent"
+	"github.com/gvamaresh/allblue/agents/memory_agent"
+	"github.com/gvamaresh/allblue/internal/correlator"
+	"github.com/gvamaresh/allblue/internal/logger"
+	"github.com/gvamaresh/allblue/internal/wrappers"
+	"github.com/gvamaresh/allblue/agents/reasoning_logger"
 )
 
 type Engine struct {
@@ -64,7 +64,7 @@ func (e *Engine) RunTriage(evidencePath string, evidenceType string) {
 	defer reasoning_logger.Get().WriteReport()
 	defer reasoning_logger.Get().PrintSummary()
  
-	fmt.Printf("\n[*] LogPoseSIFT AI Orchestrator -- Session %s\n", sessionID)
+	fmt.Printf("\n[*] AllBlue AI Orchestrator -- Session %s\n", sessionID)
 	fmt.Printf("[*] Evidence: %s (type: %s)\n\n", evidencePath, evidenceType)
  
 	fmt.Println("[*] Running pre-triage to gather confirmed facts...")
@@ -72,7 +72,7 @@ func (e *Engine) RunTriage(evidencePath string, evidenceType string) {
 	fmt.Printf("[*] Pre-triage complete (%d chars of confirmed findings)\n\n", len(factSheet))
  
 	prompt := fmt.Sprintf(
-		"You are LogPoseSIFT, an autonomous DFIR triage agent.\n"+
+		"You are AllBlue, an autonomous DFIR triage agent.\n"+
 			"Evidence: %s | Type: %s\n\n"+
 			"%s\n"+ 
 			"INSTRUCTIONS:\n"+

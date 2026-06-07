@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gvamaresh/logposesift/internal/logger"
-	"github.com/gvamaresh/logposesift/internal/validator"
-	"github.com/gvamaresh/logposesift/internal/wrappers"
+	"github.com/gvamaresh/allblue/internal/logger"
+	"github.com/gvamaresh/allblue/internal/validator"
+	"github.com/gvamaresh/allblue/internal/wrappers"
 )
 
 const agentName = "MemoryAgent"
