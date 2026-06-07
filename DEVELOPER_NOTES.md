@@ -1,4 +1,4 @@
-# LogPoseSIFT — Developer Notes
+# AllBlue — Developer Notes
 
 ## Environment
 
@@ -17,12 +17,12 @@
 ip a | grep "inet " | grep -v 127
 
 # 3. Mount VM filesystem on Fedora host:
-sshfs sansforensics@<VM_IP>:/home/sansforensics/LogPoseSIFT ~/hackathon/LogPoseSIFT
+sshfs sansforensics@<VM_IP>:/home/sansforensics/allblue ~/hackathon/allblue
 
 # 4. Verify bridge works:
-touch ~/hackathon/LogPoseSIFT/test.txt
+touch ~/hackathon/allblue/test.txt
 # Check it appears in SIFT VM:
-ls ~/LogPoseSIFT/test.txt && rm test.txt
+ls ~/allblue/test.txt && rm test.txt
 ```
 
 ---
@@ -30,7 +30,7 @@ ls ~/LogPoseSIFT/test.txt && rm test.txt
 ## Common Commands (run inside SIFT VM)
 
 ```bash
-cd ~/LogPoseSIFT
+cd ~/allblue
 
 # Build the binary
 go build -o logpose-ai ./cmd/sift-mcp/
@@ -66,7 +66,7 @@ cat logs/triage_*_reasoning.md | head -100
 ```bash
 # Extract the SRL-2018 memory image (do this once)
 mkdir -p /tmp/evidence
-cd ~/LogPoseSIFT/data/Compromised_APT_Attack_Scenarios/\
+cd ~/allblue/data/Compromised_APT_Attack_Scenarios/\
 SRL_2018_Compromised_Enterprose_Network/SRL_2018/\
 HACKATHON-2026/Compromised\ APT\ Attack\ Scenarios/\
 SRL-2018-Compromised\ Enterprise\ Network/SRL-2018/
@@ -180,7 +180,7 @@ GEMINI_API_KEY=AI...
 | `model not found` | Check model string in `orchestrator.go`: use `claude-sonnet-4-6` |
 | `credit balance too low` | Add credits at console.anthropic.com |
 | `vol: error: argument PLUGIN: invalid choice /path` | Remove `--symbols-path` from Volatility args — symbols are cached |
-| `rules_path must be under /opt/logposesift/yara-rules` | Set `LOGPOSE_YARA_RULES_DIR=~/yara-rules` or create the dir |
+| `rules_path must be under /opt/allblue/yara-rules` | Set `LOGPOSE_YARA_RULES_DIR=~/yara-rules` or create the dir |
 | `log2timeline: unrecognized arguments` | Use `--storage-file` not positional args |
 | `BrokenPipeError` from Volatility | Normal when piping to `head` — not an error |
 | `builds clean` but empty final report | Check `MaxTokens` in `runClaude()` — must be 8192 |

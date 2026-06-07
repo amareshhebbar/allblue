@@ -1,4 +1,4 @@
-module github.com/gvamaresh/logposesift
+module github.com/gvamaresh/allblue
 
 go 1.25.9
 

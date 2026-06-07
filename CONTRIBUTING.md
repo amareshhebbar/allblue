@@ -1,13 +1,13 @@
-# Contributing to LogPoseSIFT
+# Contributing to AllBlue
 
-We welcome contributions to LogPoseSIFT! This project thrives on community collaboration to build safer, faster incident response tools.
+We welcome contributions to AllBlue! This project thrives on community collaboration to build safer, faster incident response tools.
 
 ## How to Contribute
 
 1.  **Fork the Repository:** Click the "Fork" button at the top of the repository page.
 2.  **Clone Your Fork:** Clone your forked repository to your local machine.
     ```bash
-    git clone [https://github.com/gvamaresh/logposesift.git](https://github.com/gvamaresh/logposesift.git)
+    git clone [https://github.com/gvamaresh/allblue.git](https://github.com/gvamaresh/allblue.git)
     ```
 3.  **Create a Branch:** Create a new branch for your feature or bugfix.
     ```bash
@@ -21,7 +21,7 @@ We welcome contributions to LogPoseSIFT! This project thrives on community colla
     ```bash
     git push origin feature/your-feature-name
     ```
-7.  **Open a Pull Request:** Go to the original LogPoseSIFT repository and open a pull request detailing your additions.
+7.  **Open a Pull Request:** Go to the original AllBlue repository and open a pull request detailing your additions.
 
 ## Code of Conduct
 

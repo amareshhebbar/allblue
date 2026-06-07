@@ -1,4 +1,4 @@
-# LogPoseSIFT Code of Conduct
+# AllBlue Code of Conduct
 
 In the interest of fostering an open and welcoming environment, we as contributors and maintainers pledge to make participation in our project and our community a harassment-free experience for everyone, regardless of age, body size, disability, health condition, ethnicity, gender identity and expression, level of experience, nationality, country of origin, personal appearance, race, religion, or sexual identity and orientation.
 
@@ -18,7 +18,7 @@ Examples of unacceptable behavior by participants include:
 * Publishing others' private information, such as a physical or electronic address, without explicit permission.
 * Conduct which could reasonably be considered inappropriate for the forum in which it occurs.
 
-All LogPoseSIFT forums and spaces are meant for professional interactions, and any behavior which could reasonably be considered inappropriate in a professional setting is unacceptable.
+All AllBlue forums and spaces are meant for professional interactions, and any behavior which could reasonably be considered inappropriate in a professional setting is unacceptable.
 
 ## Our Responsibilities
 
@@ -35,4 +35,4 @@ If you are experiencing or witnessing conflict, we ask you to use the following 
 
 ## Reporting Violations
 
-Violations of the Code of Conduct can be reported to the LogPoseSIFT maintainers via the repository's issue tracker or designated communication channels. Project maintainers will determine whether the Code of Conduct was violated and issue an appropriate sanction.
+Violations of the Code of Conduct can be reported to the AllBlue maintainers via the repository's issue tracker or designated communication channels. Project maintainers will determine whether the Code of Conduct was violated and issue an appropriate sanction.

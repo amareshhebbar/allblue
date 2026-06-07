@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-LogPoseSIFT provides security updates and support for the following major versions:
+AllBlue provides security updates and support for the following major versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -11,7 +11,7 @@ LogPoseSIFT provides security updates and support for the following major versio
 
 ## Reporting a Vulnerability
 
-Because LogPoseSIFT operates on sensitive digital forensics data, any vulnerability that allows for evidence spoliation (the modification or deletion of original case data) is treated as a critical severity issue.
+Because AllBlue operates on sensitive digital forensics data, any vulnerability that allows for evidence spoliation (the modification or deletion of original case data) is treated as a critical severity issue.
 
 If you discover a vulnerability, an execution loophole, or a prompt injection method that bypasses the Custom MCP Server's type-safety constraints, please do not open a public issue. 
 
