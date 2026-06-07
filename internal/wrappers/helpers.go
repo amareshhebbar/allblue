@@ -41,7 +41,7 @@ func workingDir() string {
 	if d := os.Getenv("LOGPOSE_WORK_DIR"); d != "" {
 		return d
 	}
-	return "/opt/logposesift/work"
+	return "/opt/allblue/work"
 }
 
 func validateOutputPath(path string) error {

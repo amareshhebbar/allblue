@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gvamaresh/logposesift/internal/registry"
+	"github.com/gvamaresh/allblue/internal/registry"
 )
 
 func RunRegistryTool(toolKey string, targetValue string) (string, error) {

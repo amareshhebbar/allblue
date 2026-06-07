@@ -51,12 +51,12 @@ type YaraOutput struct {
 }
 
 // approvedRulesDir returns the YARA rules directory.
-// Priority: LOGPOSE_YARA_RULES_DIR env → /opt/logposesift/yara-rules → ~/yara-rules
+// Priority: LOGPOSE_YARA_RULES_DIR env → /opt/allblue/yara-rules → ~/yara-rules
 // The directory is created automatically if it does not exist.
 func approvedRulesDir() string {
 	candidates := []string{
 		os.Getenv("LOGPOSE_YARA_RULES_DIR"),
-		"/opt/logposesift/yara-rules",
+		"/opt/allblue/yara-rules",
 		filepath.Join(os.Getenv("HOME"), "yara-rules"),
 		"/tmp/yara-rules",
 	}
@@ -83,14 +83,14 @@ func seedBuiltinRules(dir string) {
 	}
 
 	builtinRules := `
-// LogPoseSIFT built-in YARA rules
+// AllBlue built-in YARA rules
 // Covers: common C2 ports in memory, known malware strings, LOLBin patterns
 
 rule SuspiciousProcess_UsbClient {
     meta:
         description = "Detects usbclient.exe — not a legitimate Windows binary"
         severity = "high"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $name = "usbclient.exe" nocase
         $name2 = "usbclient" nocase
@@ -102,7 +102,7 @@ rule SuspiciousProcess_Controllers {
     meta:
         description = "Detects *_ctrl.exe naming pattern used by this APT"
         severity = "high"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $s1 = "subject_ctrl" nocase
         $s2 = "license_ctrl" nocase
@@ -116,7 +116,7 @@ rule C2_Port_8080_Pattern {
     meta:
         description = "Detects C2 beaconing patterns to port 8080"
         severity = "medium"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $beacon = ":8080" ascii wide
         $ua = "Mozilla/4.0" ascii
@@ -128,7 +128,7 @@ rule PowerShell_Encoded_Command {
     meta:
         description = "Detects PowerShell encoded command execution"
         severity = "high"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $enc1 = "-EncodedCommand" nocase
         $enc2 = "-enc " nocase
@@ -141,7 +141,7 @@ rule Mimikatz_Artifacts {
     meta:
         description = "Detects Mimikatz credential dumping artifacts"
         severity = "critical"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $s1 = "sekurlsa" nocase
         $s2 = "lsadump" nocase
@@ -156,7 +156,7 @@ rule LOLBin_CertUtil_Download {
     meta:
         description = "Detects certutil used as download cradle"
         severity = "high"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $s1 = "certutil" nocase
         $s2 = "-decode" nocase
@@ -169,7 +169,7 @@ rule Cobalt_Strike_Beacon_Config {
     meta:
         description = "Detects Cobalt Strike beacon configuration patterns"
         severity = "critical"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $cs1 = { 00 01 00 01 00 02 }
         $cs2 = "ReflectiveLoader" nocase
@@ -183,7 +183,7 @@ rule Process_Hollowing_MZ_RWX {
     meta:
         description = "Detects MZ header in RWX memory region (process hollowing indicator)"
         severity = "critical"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $mz = { 4D 5A }
         $rwx_hint = "PAGE_EXECUTE_READWRITE" nocase
@@ -195,7 +195,7 @@ rule DKOM_Rootkit_Indicators {
     meta:
         description = "Detects DKOM rootkit techniques in memory"
         severity = "critical"
-        source = "LogPoseSIFT"
+        source = "AllBlue"
     strings:
         $s1 = "ActiveProcessLinks" nocase
         $s2 = "FLINK" ascii
@@ -205,7 +205,7 @@ rule DKOM_Rootkit_Indicators {
         2 of them
 }
 `
-	path := filepath.Join(dir, "logposesift_builtin.yar")
+	path := filepath.Join(dir, "AllBlue_builtin.yar")
 	_ = os.WriteFile(path, []byte(builtinRules), 0644)
 }
 
