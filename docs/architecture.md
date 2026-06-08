@@ -1,10 +1,10 @@
-# AllBlue × Splunk — Architecture
+# AllBlue — Architecture
 
 > **Hackathon:** Splunk Agentic Ops Hackathon · Security Track · June 2026
 
 ## Architecture Diagram
 
-![AllBlue Architecture](./architecture.png)
+![AllBlue Architecture](../assets/arch-allblue.png)
 
 ---
 
