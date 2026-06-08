@@ -1,12 +1,4 @@
-// Package reasoning_logger implements the analyst training loop.
-// Every tool call is recorded with:
-//   - intent    (why this tool was chosen)
-//   - hypothesis (what we expected to find)
-//   - result    (what was actually returned)
-//   - delta     (why result differed from hypothesis — the teaching moment)
-//
-// This makes the audit trail readable by junior analysts as a tutorial,
-// and directly satisfies hackathon criterion 5 (audit trail quality).
+
 package reasoning_logger
 
 import (
@@ -19,59 +11,23 @@ import (
 	"time"
 )
 
-// ReasoningRecord is one complete tool-call explanation.
-// Every field is mandatory for judge traceability.
 type ReasoningRecord struct {
-	// Sequence number within the session
 	Sequence int `json:"sequence"`
-
-	// Timestamp of tool execution (RFC3339)
 	Timestamp string `json:"timestamp"`
-
-	// Which agent made this call
 	Agent string `json:"agent"`
-
-	// Which tool was called (registry key, e.g. vol_windows_malfind)
 	Tool string `json:"tool"`
-
-	// Input parameters passed to the tool
 	Input interface{} `json:"input"`
-
-	// ── The reasoning chain ─────────────────────────────────
-
-	// Why this tool was chosen at this point in the investigation
 	Intent string `json:"intent"`
-
-	// What the analyst expected to find before running the tool
 	Hypothesis string `json:"hypothesis"`
-
-	// What the tool actually returned (truncated to 500 chars)
 	Result string `json:"result,omitempty"`
-
-	// Why the result differed from the hypothesis (the teaching moment)
-	// Empty if result matched hypothesis exactly
 	Delta string `json:"delta,omitempty"`
-
-	// Whether this tool call was triggered by self-correction
 	SelfCorrection bool `json:"self_correction,omitempty"`
-
-	// ── Metadata ─────────────────────────────────────────────
-
-	// Duration of tool execution in milliseconds
 	DurationMs int64 `json:"duration_ms"`
-
-	// Confidence in the findings: CONFIRMED | INFERRED | UNVERIFIED
 	Confidence string `json:"confidence"`
-
-	// Any error that occurred during execution
 	Error string `json:"error,omitempty"`
-
-	// Session ID this record belongs to
 	SessionID string `json:"session_id"`
 }
 
-// SessionReport is the complete reasoning chain for one triage session.
-// Written at the end of the session as a single JSON file.
 type SessionReport struct {
 	SessionID    string            `json:"session_id"`
 	StartTime    string            `json:"start_time"`
@@ -82,7 +38,6 @@ type SessionReport struct {
 	Summary      SessionSummary    `json:"summary"`
 }
 
-// SessionSummary is the aggregate statistics for judge review.
 type SessionSummary struct {
 	TotalToolCalls int            `json:"total_tool_calls"`
 	Confirmed      int            `json:"confirmed"`
@@ -93,7 +48,6 @@ type SessionSummary struct {
 	IOCsFound      []string       `json:"iocs_found,omitempty"`
 }
 
-// ReasoningLogger is the global analyst training loop recorder.
 type ReasoningLogger struct {
 	mu           sync.Mutex
 	sessionID    string
@@ -109,7 +63,6 @@ type ReasoningLogger struct {
 var global *ReasoningLogger
 var once sync.Once
 
-// Init initialises the global reasoning logger for a session.
 func Init(sessionID, logDir, evidencePath, evidenceType string) {
 	once = sync.Once{}
 	once.Do(func() {
@@ -124,18 +77,14 @@ func Init(sessionID, logDir, evidencePath, evidenceType string) {
 	})
 }
 
-// Get returns the global reasoning logger.
-// If Init was not called, returns a no-op logger that writes to /tmp.
 func Get() *ReasoningLogger {
 	if global == nil {
-		Init("noinit_"+time.Now().Format("150405"), "/tmp/logpose_reasoning",
+		Init("noinit_"+time.Now().Format("150405"), "/tmp/allblue_reasoning",
 			"unknown", "unknown")
 	}
 	return global
 }
 
-// Record adds a tool call to the reasoning chain.
-// Call this immediately after every tool execution.
 func (r *ReasoningLogger) Record(rec ReasoningRecord) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -147,7 +96,6 @@ func (r *ReasoningLogger) Record(rec ReasoningRecord) {
 	}
 	r.records = append(r.records, rec)
 
-	// Print reasoning chain to stdout for real-time analyst visibility
 	icon := confidenceIcon(rec.Confidence)
 	correction := ""
 	if rec.SelfCorrection {
@@ -160,16 +108,12 @@ func (r *ReasoningLogger) Record(rec ReasoningRecord) {
 	}
 }
 
-// AddIOC records an indicator of compromise found during triage.
 func (r *ReasoningLogger) AddIOC(ioc string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.iocs = append(r.iocs, ioc)
 }
 
-// WriteReport writes the complete session reasoning chain to disk.
-// Call this at the end of every triage session.
-// Output: logs/{sessionID}_reasoning.json (human-readable, judge-traceable)
 func (r *ReasoningLogger) WriteReport() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -185,7 +129,6 @@ func (r *ReasoningLogger) WriteReport() error {
 		Summary:      summary,
 	}
 
-	// Write structured JSON
 	jsonPath := filepath.Join(r.logDir, r.sessionID+"_reasoning.json")
 	b, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -195,7 +138,6 @@ func (r *ReasoningLogger) WriteReport() error {
 		return fmt.Errorf("reasoning logger: write failed: %v", err)
 	}
 
-	// Write human-readable Markdown (for judges who don't want to read JSON)
 	mdPath := filepath.Join(r.logDir, r.sessionID+"_reasoning.md")
 	if err := os.WriteFile(mdPath, []byte(r.buildMarkdown(report)), 0644); err != nil {
 		return fmt.Errorf("reasoning logger: markdown write failed: %v", err)
@@ -206,7 +148,6 @@ func (r *ReasoningLogger) WriteReport() error {
 	return nil
 }
 
-// PrintSummary prints the session summary banner.
 func (r *ReasoningLogger) PrintSummary() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -226,7 +167,6 @@ func (r *ReasoningLogger) PrintSummary() {
 	fmt.Printf("╚══════════════════════════════════════════════╝\n\n")
 }
 
-// ── Internal helpers ──────────────────────────────────────────
 
 func (r *ReasoningLogger) buildSummary() SessionSummary {
 	s := SessionSummary{
@@ -316,18 +256,12 @@ func truncate(s string, max int) string {
 	return s[:max] + "…"
 }
 
-// ── Builder for easy record creation ─────────────────────────
-
-// NewRecord starts building a ReasoningRecord.
-// Designed to be called at the START of a tool execution,
-// then completed with Complete() after the tool returns.
 type RecordBuilder struct {
 	rec       ReasoningRecord
 	startTime time.Time
 	logger    *ReasoningLogger
 }
 
-// Start creates a builder for a new tool call record.
 func (r *ReasoningLogger) Start(tool, agent, intent, hypothesis string) *RecordBuilder {
 	return &RecordBuilder{
 		rec: ReasoningRecord{
@@ -342,19 +276,16 @@ func (r *ReasoningLogger) Start(tool, agent, intent, hypothesis string) *RecordB
 	}
 }
 
-// SelfCorrection marks this record as a self-correction step.
 func (b *RecordBuilder) SelfCorrection() *RecordBuilder {
 	b.rec.SelfCorrection = true
 	return b
 }
 
-// WithInput records the input parameters.
 func (b *RecordBuilder) WithInput(input interface{}) *RecordBuilder {
 	b.rec.Input = input
 	return b
 }
 
-// Complete finalises the record with the tool output and confidence.
 func (b *RecordBuilder) Complete(result string, err error, confidence, delta string) {
 	b.rec.DurationMs = time.Since(b.startTime).Milliseconds()
 	b.rec.Result = truncate(result, 500)

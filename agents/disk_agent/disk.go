@@ -14,10 +14,6 @@ import (
 
 const agentName = "DiskAgent"
 
-// ExtractAndParseTimeline is the main disk triage entry point.
-// Sequence: mmls → fls → log2timeline → psort → strings on executables
-// Self-correction: if fls sparse → retry with deleted flag
-// Evidence type detection: rejects memory dumps gracefully
 func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 	fmt.Printf("\n[DiskAgent] Starting disk triage on: %s\n", imagePath)
 	log := logger.Get()
@@ -25,8 +21,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 	var allFindings []string
 	var confirmed, inferred, unverified int
 
-	// ── Guard: reject memory dumps ────────────────────────────
-	// Disk tools fail silently on memory dumps. Detect and report clearly.
 	if isDiskImage, reason := validateDiskImage(imagePath); !isDiskImage {
 		return fmt.Sprintf(
 			"══════════════════════════════════════════════\n"+
@@ -39,7 +33,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 			imagePath, reason), nil
 	}
 
-	// ── Step 1: Partition map (orientation) ───────────────────
 	mmlsOutput, mmlsErr := runMmls(log, imagePath)
 	if mmlsErr == nil && len(mmlsOutput) > 50 {
 		conf := "CONFIRMED" // partition table is deterministic
@@ -47,7 +40,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 		allFindings = append(allFindings, fmt.Sprintf("[PARTITION MAP | %s]\n%s", conf, truncate(mmlsOutput, 400)))
 	}
 
-	// ── Step 2: Filesystem listing ────────────────────────────
 	flsOutput, flsErr := runFLS(log, imagePath)
 	if flsErr == nil && len(flsOutput) > 50 {
 		conf := validator.QuickValidate("tsk_fls", flsOutput, "", "", "")
@@ -60,7 +52,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 		allFindings = append(allFindings, finding)
 	}
 
-	// ── Self-correction: sparse FLS → retry with deleted flag ─
 	if flsErr == nil && countLines(flsOutput) < 10 {
 		fmt.Printf("[DiskAgent] Self-correction: FLS returned %d lines — re-running with -d (deleted files)\n",
 			countLines(flsOutput))
@@ -74,8 +65,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 		}
 	}
 
-	// ── Step 3: log2timeline super-timeline ──────────────────
-	// Use a deterministic output path inside /tmp — not the CSV path
 	plasoPath := filepath.Join("/tmp", "logpose_timeline.plaso")
 	l2tOutput, l2tErr := runLog2Timeline(log, imagePath, plasoPath)
 	if l2tErr != nil {
@@ -93,7 +82,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 		allFindings = append(allFindings, fmt.Sprintf("[LOG2TIMELINE | %s]\n%s", conf, truncate(l2tOutput, 600)))
 	}
 
-	// ── Step 4: psort timeline export ─────────────────────────
 	if l2tErr == nil {
 		csvOutput, csvErr := runPsort(log, plasoPath, outputCSV)
 		if csvErr == nil {
@@ -111,7 +99,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 		}
 	}
 
-	// ── Step 5: Strings on suspicious executables (if any found) ─
 	if flsErr == nil {
 		execPaths := extractExecutablePaths(flsOutput)
 		if len(execPaths) > 0 {
@@ -133,8 +120,6 @@ func ExtractAndParseTimeline(imagePath, outputCSV string) (string, error) {
 	log.SessionSummary(confirmed, inferred, unverified, confirmed+inferred+unverified)
 	return report, nil
 }
-
-// ── Individual step runners ───────────────────────────────────
 
 func runMmls(log *logger.Logger, imagePath string) (string, error) {
 	rec, start := logger.NewRecord("tsk_mmls", agentName,
@@ -188,10 +173,8 @@ func runLog2Timeline(log *logger.Logger, imagePath, plasoPath string) (string, e
 		"Expect .plaso storage file; execution time 5-30 min depending on image size")
 	rec.Input = map[string]string{"image_path": imagePath, "plaso_path": plasoPath}
 
-	// Remove old plaso file if exists to avoid "already exists" error
 	os.Remove(plasoPath)
 
-	// Build args directly — registry entry has hardcoded path, override here
 	output, err := wrappers.SafeExec("log2timeline.py",
 		[]string{"--storage-file", plasoPath, "--quiet", imagePath}, 120)
 
@@ -251,18 +234,12 @@ func runStrings(log *logger.Logger, filePath string) (string, error) {
 	return output, err
 }
 
-// ── Evidence type detection ───────────────────────────────────
-
-// validateDiskImage returns (true, "") if the path looks like a disk image,
-// or (false, reason) if it looks like a memory dump or is invalid.
 func validateDiskImage(imagePath string) (bool, string) {
 	info, err := os.Stat(imagePath)
 	if err != nil {
 		return false, fmt.Sprintf("file not found: %v", err)
 	}
 
-	// Memory dumps are typically 1-32 GB with no partition table
-	// Disk images can also be large, so check extension hints
 	ext := strings.ToLower(filepath.Ext(imagePath))
 	base := strings.ToLower(filepath.Base(imagePath))
 
@@ -271,7 +248,6 @@ func validateDiskImage(imagePath string) (bool, string) {
 	}
 	memoryKeywords := []string{"memory", "mem-", "mem.", "ram.", "vmem"}
 
-	// If extension is unambiguously a memory format
 	if memoryExtensions[ext] {
 		for _, kw := range memoryKeywords {
 			if strings.Contains(base, kw) {
@@ -280,16 +256,14 @@ func validateDiskImage(imagePath string) (bool, string) {
 		}
 	}
 
-	// If it's very large (>4GB) with .img or .dd, it's likely a disk image — proceed
+	
 	if info.Size() > 4*1024*1024*1024 {
 		return true, ""
 	}
 
-	// Default: attempt to proceed, let mmls validate
 	return true, ""
 }
 
-// ── Analysis helpers ──────────────────────────────────────────
 
 var suspiciousFilePatterns = []string{
 	"temp\\", "tmp\\", "appdata\\local\\temp", "appdata\\roaming",
@@ -367,7 +341,6 @@ func extractStringIOCs(strOutput string) []string {
 	return iocs
 }
 
-// ── Utility helpers ───────────────────────────────────────────
 
 func trackConfidence(conf string, confirmed, inferred, unverified *int) {
 	switch conf {

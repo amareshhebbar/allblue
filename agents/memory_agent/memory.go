@@ -12,15 +12,13 @@ import (
 
 const agentName = "MemoryAgent"
 
-// HuntMalware is the full autonomous memory triage entry point
 func HuntMalware(dumpPath string) (string, error) {
 	fmt.Printf("\n[MemoryAgent] Starting autonomous memory triage on: %s\n", dumpPath)
 	log := logger.Get()
 
 	var allFindings []string
 	var confirmed, inferred, unverified int
-
-	// ── Step 1: OS fingerprint ───────────────────────────────
+	
 	osInfo, err := runWithReasoning(log, dumpPath, "vol_windows_info",
 		"Determine OS version and kernel to orient all subsequent plugin selection",
 		"Expect Windows 10/11 or Server; kernel base address confirms 64-bit")
@@ -30,7 +28,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		allFindings = append(allFindings, fmt.Sprintf("[OS INFO | %s]\n%s", conf, truncate(osInfo, 800)))
 	}
 
-	// ── Step 2: Process scan (psscan bypasses DKOM rootkits) ─
 	psOutput, err := runWithReasoning(log, dumpPath, "vol_windows_pslist",
 		"Scan memory pool tags for EPROCESS structures — bypasses DKOM rootkits that unlink ActiveProcessLinks",
 		"Expect 40-80 processes on a normal Windows 10 system; flag usbclient.exe, *_ctrl.exe, ruby.exe chains")
@@ -46,7 +43,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		allFindings = append(allFindings, finding)
 	}
 
-	// ── Step 3: Network connections ───────────────────────────
 	netOutput, err := runWithReasoning(log, dumpPath, "vol_windows_netscan",
 		"Enumerate active and recently closed TCP/UDP connections to identify C2 infrastructure",
 		"Flag non-RFC1918 ESTABLISHED connections, port 8080/4444/33000, connections from non-browser processes")
@@ -64,7 +60,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		allFindings = append(allFindings, finding)
 	}
 
-	// ── Step 4: Malfind (code injection detector) ─────────────
 	malfindOutput, malfindErr := runMalfind(log, dumpPath)
 	if malfindErr == nil {
 		conf := "INFERRED"
@@ -84,7 +79,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		allFindings = append(allFindings, finding)
 	}
 
-	// ── Step 5: Command lines ─────────────────────────────────
 	cmdOutput, cmdErr := runCmdline(log, dumpPath)
 	if cmdErr == nil {
 		conf := "INFERRED"
@@ -110,7 +104,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		allFindings = append(allFindings, finding)
 	}
 
-	// ── Step 6: Service scan (persistence detection) ──────────
 	svcOutput, svcErr := runSvcscan(log, dumpPath)
 	if svcErr == nil && len(svcOutput) > 100 {
 		conf := validator.QuickValidate("vol_windows_svcscan", svcOutput, "", "", "")
@@ -126,7 +119,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		allFindings = append(allFindings, finding)
 	}
 
-	// ── Step 7: Self-correction — PSXView hidden process diff ─
 	hiddenProcesses := runPSXViewDiff(log, dumpPath)
 	if len(hiddenProcesses) > 0 {
 		allFindings = append(allFindings, fmt.Sprintf(
@@ -137,7 +129,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		confirmed++
 	}
 
-	// ── Step 8: Hollow process detection ─────────────────────
 	hollowOutput, hollowErr := runHollowProcesses(log, dumpPath)
 	if hollowErr == nil && len(hollowOutput) > 100 {
 		allFindings = append(allFindings, fmt.Sprintf("[HOLLOW PROCESSES | CONFIRMED]\n%s",
@@ -145,7 +136,6 @@ func HuntMalware(dumpPath string) (string, error) {
 		confirmed++
 	}
 
-	// ── Step 9: DLL check on suspicious processes ─────────────
 	if len(psOutput) > 100 {
 		suspicious := extractSuspiciousProcessNames(psOutput)
 		if len(suspicious) > 0 {
@@ -165,7 +155,6 @@ func HuntMalware(dumpPath string) (string, error) {
 	return report, nil
 }
 
-// ── Individual tool runners ───────────────────────────────────
 
 func runWithReasoning(log *logger.Logger, dumpPath, registryKey, intent, hypothesis string) (string, error) {
 	rec, start := logger.NewRecord(registryKey, agentName, intent, hypothesis)
@@ -252,7 +241,6 @@ func runSvcscan(log *logger.Logger, dumpPath string) (string, error) {
 	return output, err
 }
 
-// runPSXViewDiff is the self-correction step
 func runPSXViewDiff(log *logger.Logger, dumpPath string) []string {
 	rec, start := logger.NewRecord("vol_windows_psxview", agentName,
 		"Self-correction: cross-reference 4 process enumeration methods to find DKOM-hidden processes",
@@ -343,7 +331,6 @@ func runDLLCheck(log *logger.Logger, dumpPath string, suspiciousNames []string) 
 	return output, err
 }
 
-// ── Analysis helpers ──────────────────────────────────────────
 
 var knownGoodProcesses = map[string]bool{
 	"system": true, "smss.exe": true, "csrss.exe": true, "wininit.exe": true,
@@ -467,7 +454,6 @@ func extractRogueServices(svcOutput string) []string {
 	return rogues
 }
 
-// ── Utility helpers ───────────────────────────────────────────
 
 func trackConfidence(conf string, confirmed, inferred, unverified *int) {
 	switch conf {
