@@ -15,7 +15,7 @@ set -euo pipefail
 # ── Configuration ─────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
-BINARY="$REPO_DIR/logpose-ai"
+BINARY="$REPO_DIR/allblue-ai"
 RESULTS_DIR="$SCRIPT_DIR/results"
 GROUND_TRUTH="$SCRIPT_DIR/ground_truth/srl2018_apt_ground_truth.json"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -44,8 +44,8 @@ check_prereqs() {
         fi
     done
     if [[ ! -f "$BINARY" ]]; then
-        echo -e "${BLUE}[*] Building logpose-ai...${NC}"
-        cd "$REPO_DIR" && go build -o logpose-ai ./cmd/sift-mcp/ || {
+        echo -e "${BLUE}[*] Building allblue-ai...${NC}"
+        cd "$REPO_DIR" && go build -o allblue-ai ./cmd/sift-mcp/ || {
             echo -e "${RED}[!] Build failed${NC}"; exit 1
         }
     fi

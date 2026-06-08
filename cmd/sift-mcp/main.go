@@ -16,13 +16,16 @@ import (
 	"github.com/gvamaresh/allblue/agents/memory_agent"
 	"github.com/gvamaresh/allblue/agents/orchestrator"
 	"github.com/gvamaresh/allblue/internal/correlator"
+	"github.com/gvamaresh/allblue/internal/splunk"
 	"github.com/gvamaresh/allblue/internal/wrappers"
 )
 
 func main() {
-	mode := flag.String("mode", "mcp", "Execution mode: 'mcp' or 'ai'")
-	target := flag.String("target", "", "Evidence file path (--mode=ai only)")
+	mode        := flag.String("mode", "mcp", "Execution mode: 'mcp' or 'ai'")
+	target      := flag.String("target", "", "Evidence file path (--mode=ai only)")
 	evidenceType := flag.String("type", "memory", "Evidence type: memory | disk | both")
+	splunkPush  := flag.Bool("splunk-push", false, "Push findings to Splunk HEC after triage")
+	sessionID   := flag.String("session-id", "", "Optional session ID (auto-generated if empty)")
 	flag.Parse()
 
 	switch *mode {
@@ -33,8 +36,44 @@ func main() {
 		}
 		eng := orchestrator.NewEngine()
 		eng.RunTriage(*target, *evidenceType)
+
+		// Push findings to Splunk if requested
+		if *splunkPush {
+			sid := *sessionID
+			if sid == "" {
+				sid = fmt.Sprintf("allblue-%d", os.Getpid())
+			}
+			fmt.Printf("[SPLUNK] Pushing findings for session %s...\n", sid)
+			summary := splunk.TriageSummary{
+				SessionID:    sid,
+				EvidenceFile: *target,
+				EvidenceType: *evidenceType,
+				AgentEngine:  "claude",
+				TotalFindings: 1,
+				Findings: []splunk.Finding{
+					{
+						SessionID:   sid,
+						Severity:    "INFO",
+						Category:    "triage",
+						IOC:         "triage-complete",
+						Description: "AllBlue triage completed — check session logs for findings",
+						Confidence:  "CONFIRMED",
+						Tool:        "orchestrator",
+					},
+				},
+			}
+			if err := splunk.PushFindings(summary); err != nil {
+				fmt.Printf("[SPLUNK] Warning: push failed: %v\n", err)
+			} else {
+				fmt.Println("[SPLUNK] Findings pushed successfully")
+			}
+		}
+
 	case "mcp":
+		// Start Splunk webhook receiver in background
+		go splunk.StartAlertWebhook()
 		runMCPServer()
+
 	default:
 		fmt.Printf("Unknown mode: %s\n", *mode)
 		os.Exit(1)
@@ -42,9 +81,9 @@ func main() {
 }
 
 func runMCPServer() {
-	fmt.Println("[*] Initializing AllBlue Custom MCP Server v1.1...")
+	fmt.Println("[*] Initializing AllBlue Custom MCP Server v2.0...")
 
-	s := server.NewMCPServer("AllBlue-Engine", "1.1.0", server.WithLogging())
+	s := server.NewMCPServer("AllBlue-Engine", "2.0.0", server.WithLogging())
 
 	mustStr := func(args map[string]interface{}, key string) (string, error) {
 		v, ok := args[key]
@@ -144,7 +183,6 @@ func runMCPServer() {
 		},
 	)
 
-	// ── Full autonomous memory triage ─────────────────────
 	s.AddTool(
 		mcp.NewTool("hunt_memory_malware",
 			mcp.WithDescription("AUTONOMOUS: full memory triage — pslist→netscan→malfind→cmdline→self-correction. Returns CONFIRMED/INFERRED/UNVERIFIED findings."),
@@ -160,12 +198,12 @@ func runMCPServer() {
 	)
 
 	// ══════════════════════════════════════════════════════
-	// DISK — timeline + filesystem
+	// DISK
 	// ══════════════════════════════════════════════════════
 
 	s.AddTool(
 		mcp.NewTool("analyze_disk_timeline",
-			mcp.WithDescription("AUTONOMOUS: full disk triage — log2timeline→psort→FLS→mmls. Self-corrects on sparse FLS."),
+			mcp.WithDescription("AUTONOMOUS: full disk triage — log2timeline→psort→FLS→mmls."),
 			mcp.WithString("image_path", mcp.Required(), mcp.Description("Absolute path to disk image.")),
 			mcp.WithString("output_csv", mcp.Required(), mcp.Description("Output path for timeline CSV.")),
 		),
@@ -196,7 +234,7 @@ func runMCPServer() {
 	)
 
 	// ══════════════════════════════════════════════════════
-	// REGISTRY — RegRipper typed wrapper
+	// REGISTRY
 	// ══════════════════════════════════════════════════════
 
 	s.AddTool(
@@ -221,12 +259,12 @@ func runMCPServer() {
 	)
 
 	// ══════════════════════════════════════════════════════
-	// YARA — pattern matching
+	// YARA
 	// ══════════════════════════════════════════════════════
 
 	s.AddTool(
 		mcp.NewTool("run_yara_scan",
-			mcp.WithDescription("Scan a file or directory with YARA rules. Returns matched rule names, tags, and string hit offsets."),
+			mcp.WithDescription("Scan a file or directory with YARA rules."),
 			mcp.WithString("rules_path", mcp.Required(), mcp.Description("Path to YARA rules file or directory.")),
 			mcp.WithString("target_path", mcp.Required(), mcp.Description("File or directory to scan.")),
 		),
@@ -246,12 +284,12 @@ func runMCPServer() {
 	)
 
 	// ══════════════════════════════════════════════════════
-	// EVIDENCE INTEGRITY — hashdeep
+	// INTEGRITY
 	// ══════════════════════════════════════════════════════
 
 	s.AddTool(
 		mcp.NewTool("verify_hashes",
-			mcp.WithDescription("Compute or audit SHA-256/MD5 hashes. Mode 'compute' generates hashset; 'audit' compares against known-good. Returns CONFIRMED/MISMATCH/UNKNOWN per file."),
+			mcp.WithDescription("Compute or audit SHA-256/MD5 hashes. Mode 'compute' generates hashset; 'audit' compares against known-good."),
 			mcp.WithString("target_path", mcp.Required(), mcp.Description("File or directory to hash.")),
 			mcp.WithString("mode", mcp.Required(), mcp.Description("compute | audit")),
 			mcp.WithString("hashset_path", mcp.Description("Known-good hashset path (audit mode only).")),
@@ -275,12 +313,12 @@ func runMCPServer() {
 	)
 
 	// ══════════════════════════════════════════════════════
-	// CORRELATION ENGINE — disk vs memory cross-reference
+	// CORRELATION
 	// ══════════════════════════════════════════════════════
 
 	s.AddTool(
 		mcp.NewTool("correlate_findings",
-			mcp.WithDescription("Cross-reference memory and disk findings. Detects: fileless malware (process in memory, no disk trace), timestomping (timestamp contradiction), orphaned disk artefacts. Returns CONFIRMED/SUSPICIOUS/CONTRADICTED per finding."),
+			mcp.WithDescription("Cross-reference memory and disk findings. Detects fileless malware, timestomping, orphaned artefacts."),
 			mcp.WithString("memory_output", mcp.Required(), mcp.Description("Raw output from hunt_memory_malware.")),
 			mcp.WithString("disk_output", mcp.Required(), mcp.Description("Raw output from analyze_disk_timeline.")),
 		),
@@ -296,6 +334,126 @@ func runMCPServer() {
 		},
 	)
 
+	// ══════════════════════════════════════════════════════
+	// SPLUNK TOOLS (3 new) — Splunk Agentic Ops Hackathon
+	// ══════════════════════════════════════════════════════
+
+	s.AddTool(
+		mcp.NewTool("push_findings_to_splunk",
+			mcp.WithDescription("Push DFIR findings to Splunk HEC as structured IOC events. Call after triage to ship results to Splunk index=main."),
+			mcp.WithString("session_id", mcp.Required(), mcp.Description("Triage session ID.")),
+			mcp.WithString("evidence_file", mcp.Required(), mcp.Description("Evidence file that was triaged.")),
+			mcp.WithString("findings_json", mcp.Required(), mcp.Description("JSON array of findings to push.")),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args := getArgs(req)
+			sessionID, err := mustStr(args, "session_id")
+			if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+			evidenceFile, err := mustStr(args, "evidence_file")
+			if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+			findingsJSON, err := mustStr(args, "findings_json")
+			if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+
+			var findings []splunk.Finding
+			if jsonErr := json.Unmarshal([]byte(findingsJSON), &findings); jsonErr != nil {
+				// Single finding fallback
+				findings = []splunk.Finding{{
+					SessionID:   sessionID,
+					Severity:    "HIGH",
+					Category:    "triage",
+					IOC:         findingsJSON,
+					Description: "Finding from AllBlue triage",
+					Confidence:  "CONFIRMED",
+					Tool:        "allblue",
+				}}
+			}
+
+			summary := splunk.TriageSummary{
+				SessionID:     sessionID,
+				EvidenceFile:  evidenceFile,
+				EvidenceType:  "memory",
+				AgentEngine:   "claude",
+				TotalFindings: len(findings),
+				Findings:      findings,
+			}
+			if pushErr := splunk.PushFindings(summary); pushErr != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("HEC push failed: %v", pushErr)), nil
+			}
+			return mcp.NewToolResultText(fmt.Sprintf(
+				`{"status":"pushed","session_id":"%s","findings_count":%d,"splunk_index":"main"}`,
+				sessionID, len(findings),
+			)), nil
+		},
+	)
+
+	s.AddTool(
+		mcp.NewTool("query_splunk_alerts",
+			mcp.WithDescription("Query Splunk MCP Server for recent security alerts. Returns events from Splunk index matching the query."),
+			mcp.WithString("query", mcp.Required(), mcp.Description("Search terms e.g. 'malware suspicious powershell'")),
+			mcp.WithString("time_range", mcp.Description("Time range e.g. -1h -24h -7d (default: -1h)")),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args := getArgs(req)
+			query, err := mustStr(args, "query")
+			if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+			timeRange := optStr(args, "time_range")
+			if timeRange == "" { timeRange = "-1h" }
+
+			client := splunk.NewSplunkMCPClient()
+			results, queryErr := client.SearchAlerts(query, timeRange)
+			if queryErr != nil {
+				return mcp.NewToolResultText(fmt.Sprintf(
+					`{"status":"unavailable","message":"Splunk MCP Server not reachable: %v","query":"%s"}`,
+					queryErr, query,
+				)), nil
+			}
+			b, _ := json.MarshalIndent(results, "", "  ")
+			return mcp.NewToolResultText(string(b)), nil
+		},
+	)
+
+	s.AddTool(
+		mcp.NewTool("get_splunk_context",
+			mcp.WithDescription("Enrich a finding with historical Splunk data. Searches Splunk for past events related to an IP or process name."),
+			mcp.WithString("ioc_type", mcp.Required(), mcp.Description("ip | process | hostname")),
+			mcp.WithString("ioc_value", mcp.Required(), mcp.Description("The IOC value to enrich e.g. 192.168.1.100 or svchost.exe")),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args := getArgs(req)
+			iocType, err := mustStr(args, "ioc_type")
+			if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+			iocValue, err := mustStr(args, "ioc_value")
+			if err != nil { return mcp.NewToolResultError(err.Error()), nil }
+
+			client := splunk.NewSplunkMCPClient()
+			var results []map[string]interface{}
+			var queryErr error
+
+			switch iocType {
+			case "ip":
+				results, queryErr = client.EnrichIP(iocValue)
+			case "process":
+				results, queryErr = client.EnrichProcess(iocValue)
+			default:
+				results, queryErr = client.SearchAlerts(iocValue, "-24h")
+			}
+
+			if queryErr != nil {
+				return mcp.NewToolResultText(fmt.Sprintf(
+					`{"status":"unavailable","ioc_type":"%s","ioc_value":"%s","message":"Splunk MCP not reachable: %v"}`,
+					iocType, iocValue, queryErr,
+				)), nil
+			}
+			b, _ := json.MarshalIndent(map[string]interface{}{
+				"ioc_type":  iocType,
+				"ioc_value": iocValue,
+				"results":   results,
+				"count":     len(results),
+			}, "", "  ")
+			return mcp.NewToolResultText(string(b)), nil
+		},
+	)
+
 	printToolSummary()
 	fmt.Println("[*] Listening on stdio...")
 	if err := server.ServeStdio(s); err != nil {
@@ -303,7 +461,6 @@ func runMCPServer() {
 	}
 }
 
-// dispatchCorrelation runs the correlator package directly.
 func dispatchCorrelation(memOutput, diskOutput string) (string, error) {
 	engine := correlator.New("memory_agent", "disk_agent")
 
@@ -311,7 +468,6 @@ func dispatchCorrelation(memOutput, diskOutput string) (string, error) {
 	memFindings = append(memFindings, correlator.ParseNetScan(memOutput)...)
 	memFindings = append(memFindings, correlator.ParseMalfind(memOutput)...)
 
-	// Build DiskFindings from raw text (each non-empty line = one disk artefact path)
 	var diskFindings []correlator.DiskFinding
 	for _, line := range strings.Split(diskOutput, "\n") {
 		line = strings.TrimSpace(line)
@@ -338,12 +494,16 @@ func printToolSummary() {
 		"analyze_disk_timeline",       "analyze_disk_fls",
 		"analyze_registry",            "run_yara_scan",
 		"verify_hashes",               "correlate_findings",
+		"push_findings_to_splunk",     "query_splunk_alerts",
+		"get_splunk_context",
 	}
 	fmt.Println("  ┌──────────────────────────────────────────────────┐")
-	fmt.Println("  │             Registered MCP Tools (12)            │")
+	fmt.Printf("  │         Registered MCP Tools (%d)               │\n", len(tools))
 	fmt.Println("  ├──────────────────────────────────────────────────┤")
 	for i, t := range tools {
-		fmt.Printf("  │  %2d. %-45s│\n", i+1, t)
+		marker := "  "
+		if i >= 12 { marker = "✦ " } // highlight new Splunk tools
+		fmt.Printf("  │  %2d. %s%-43s│\n", i+1, marker, t)
 	}
 	fmt.Println("  └──────────────────────────────────────────────────┘")
 }
