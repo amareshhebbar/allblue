@@ -51,11 +51,11 @@ type YaraOutput struct {
 }
 
 // approvedRulesDir returns the YARA rules directory.
-// Priority: LOGPOSE_YARA_RULES_DIR env → /opt/allblue/yara-rules → ~/yara-rules
+// Priority: allblue_YARA_RULES_DIR env → /opt/allblue/yara-rules → ~/yara-rules
 // The directory is created automatically if it does not exist.
 func approvedRulesDir() string {
 	candidates := []string{
-		os.Getenv("LOGPOSE_YARA_RULES_DIR"),
+		os.Getenv("allblue_YARA_RULES_DIR"),
 		"/opt/allblue/yara-rules",
 		filepath.Join(os.Getenv("HOME"), "yara-rules"),
 		"/tmp/yara-rules",

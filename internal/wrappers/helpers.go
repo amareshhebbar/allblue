@@ -38,7 +38,7 @@ func isAllowedFilterChar(ch rune) bool {
 }
 
 func workingDir() string {
-	if d := os.Getenv("LOGPOSE_WORK_DIR"); d != "" {
+	if d := os.Getenv("allblue_WORK_DIR"); d != "" {
 		return d
 	}
 	return "/opt/allblue/work"
