@@ -6,8 +6,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"time"
+	"path/filepath"
 )
 
 type SplunkAlert struct {
@@ -91,7 +93,17 @@ func triggerTriage(sessionID string, alert SplunkAlert) {
 		fmt.Printf("[TRIAGE] No evidence path in alert, using default: %s\n", evidencePath)
 	}
 
-	cmd := exec.Command("./logpose-ai",
+	cwd, err := os.Getwd()
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get current directory: %v", err)
+		fmt.Printf("[TRIAGE] ERROR: %s\n", errMsg)
+		PushRawLog(sessionID, "ERROR", errMsg)
+		return
+	}
+
+	aiExecutablePath := filepath.Join(cwd, "allblue-ai")
+
+	cmd := exec.Command(aiExecutablePath,
 		"--mode=ai",
 		"--target="+evidencePath,
 		"--type=memory",
