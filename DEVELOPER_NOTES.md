@@ -33,18 +33,18 @@ ls ~/allblue/test.txt && rm test.txt
 cd ~/allblue
 
 # Build the binary
-go build -o logpose-ai ./cmd/sift-mcp/
+go build -o allblue-ai ./cmd/sift-mcp/
 
 # Test MCP server starts (Ctrl+C to exit)
-./logpose-ai --mode=mcp
+./allblue-ai --mode=mcp
 
 # Run autonomous triage on memory dump
-./logpose-ai --mode=ai \
+./allblue-ai --mode=ai \
   --target=/tmp/evidence/base-hunt-memory.img \
   --type=memory
 
 # Run autonomous triage on disk image
-./logpose-ai --mode=ai \
+./allblue-ai --mode=ai \
   --target=/tmp/evidence/base-file-snapshot5.img \
   --type=disk
 
@@ -154,7 +154,7 @@ s.AddTool(
 
 3. Add to `allToolDefs()` in `agents/orchestrator/orchestrator.go` if Claude should use it autonomously.
 
-4. `go build -o logpose-ai ./cmd/sift-mcp/` to verify.
+4. `go build -o allblue-ai ./cmd/sift-mcp/` to verify.
 
 ---
 
@@ -167,7 +167,7 @@ GEMINI_API_KEY=AI...
 
 # The orchestrator loads this automatically via godotenv
 # Verify it's loaded:
-./logpose-ai --mode=ai --target=/tmp/evidence/base-hunt-memory.img --type=memory
+./allblue-ai --mode=ai --target=/tmp/evidence/base-hunt-memory.img --type=memory
 # Should show: [*] Primary Engine: Claude
 ```
 
@@ -180,7 +180,7 @@ GEMINI_API_KEY=AI...
 | `model not found` | Check model string in `orchestrator.go`: use `claude-sonnet-4-6` |
 | `credit balance too low` | Add credits at console.anthropic.com |
 | `vol: error: argument PLUGIN: invalid choice /path` | Remove `--symbols-path` from Volatility args — symbols are cached |
-| `rules_path must be under /opt/allblue/yara-rules` | Set `LOGPOSE_YARA_RULES_DIR=~/yara-rules` or create the dir |
+| `rules_path must be under /opt/allblue/yara-rules` | Set `allblue_YARA_RULES_DIR=~/yara-rules` or create the dir |
 | `log2timeline: unrecognized arguments` | Use `--storage-file` not positional args |
 | `BrokenPipeError` from Volatility | Normal when piping to `head` — not an error |
 | `builds clean` but empty final report | Check `MaxTokens` in `runClaude()` — must be 8192 |

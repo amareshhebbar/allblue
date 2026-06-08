@@ -85,7 +85,7 @@ To reproduce this benchmark on the SANS SIFT Workstation:
 # 1. Clone and build
 git clone https://github.com/amareshhebbar/allblue
 cd AllBlue
-go build -o logpose-ai ./cmd/sift-mcp/
+go build -o allblue-ai ./cmd/sift-mcp/
 
 # 2. Set API key
 echo "ANTHROPIC_API_KEY=your_key_here" > .env
