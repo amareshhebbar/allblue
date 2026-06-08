@@ -20,7 +20,7 @@ Splunk alerts trigger autonomous forensic triage → findings pushed to Splunk a
 [![Hallucinations: 0](https://img.shields.io/badge/Hallucinations-0-005571?style=flat-square)]()
 [![License: MIT](https://img.shields.io/github/license/amareshhebbar/allblue?style=flat-square&color=005571)](LICENSE)
 
-[Architecture](docs/architecture.md) · [Accuracy Report](docs/accuracy_report.md) · [Dataset](docs/dataset.md) · [Issues](https://github.com/amareshhebbar/allblue/issues)
+[Architecture](docs/architecture.md) · [Accuracy Report](docs/accuracy_report.md) · [Dataset](docs/dataset.md) · [Issues](https://github.com/amareshhebbar/allblue/issues) · [Triage Result](https://github.com/amareshhebbar/allblue/triage_result.md)
 
 > **AI Engine:** Claude Sonnet 4.6 (primary) · Gemini 2.5 Flash (automatic failover). All benchmark results produced using Claude.
 
