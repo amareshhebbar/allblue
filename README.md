@@ -1,7 +1,13 @@
 <div align="center">
 
-# AllBlue
+  ```
+__ _  _  _     ___  _          
+ / _` || || |   | _ )| | _  _  ___ 
+| (_| || || |   | _ \| || || |/ -_)
+ \__,_||_||_|   |___/|_| \_,_|\___|
 
+```
+ 
 **Autonomous Multi-Agent DFIR Orchestrator × Splunk**
 
 Splunk alerts trigger autonomous forensic triage → findings pushed to Splunk as structured IOC events → real-time DFIR intelligence dashboard.
