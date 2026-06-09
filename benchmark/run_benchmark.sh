@@ -67,7 +67,7 @@ setup_ground_truth() {
         cat > "$GROUND_TRUTH" << 'TRUTH'
 {
   "dataset": "SRL-2018 Compromised Enterprise Network",
-  "source": "SANS DFIR Summit / HACKATHON-2026",
+  "source": "DFIR Summit / HACKATHON-2026",
   "evidence_file": "base-hunt-memory.img",
   "documented_iocs": {
     "malicious_processes": [

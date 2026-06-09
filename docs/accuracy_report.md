@@ -1,6 +1,6 @@
 # AllBlue — Accuracy Report
 
-**Dataset:** SRL-2018 Compromised Enterprise Network (SANS DFIR Summit / HACKATHON-2026)  
+**Dataset:** SRL-2018 Compromised Enterprise Network (DFIR Summit / HACKATHON-2026)  
 **Evidence:** `base-hunt-memory.img` (5.37 GB Windows 10 memory capture)  
 **Benchmark Date:** 2026-05-23  
 **Agent Version:** v1.1.0  
@@ -26,7 +26,7 @@ AllBlue achieved **100% precision** and **93% recall** on the SRL-2018 APT datas
 ## Benchmark Methodology
 
 ### Dataset
-The SRL-2018 Compromised Enterprise Network scenario is a documented APT intrusion captured for DFIR training. The ground truth was compiled from SANS documentation and manual analysis of the evidence.
+The SRL-2018 Compromised Enterprise Network scenario is a documented APT intrusion captured for DFIR training. The ground truth was compiled from documentation and manual analysis of the evidence.
 
 Evidence file: `base-hunt-memory.img` — a raw Windows 10 x64 memory capture taken during an active compromise. System time at capture: `2018-09-07 01:03:57 UTC`.
 

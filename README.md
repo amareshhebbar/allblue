@@ -30,7 +30,7 @@ Splunk alerts trigger autonomous forensic triage → findings pushed to Splunk a
 
 ## What Is AllBlue
 
-AllBlue is an autonomous DFIR triage system that connects Claude (with Gemini failover) to the SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go** — now fully integrated with **Splunk** as both a trigger source and findings destination.
+AllBlue is an autonomous DFIR triage system that connects Claude (with Gemini failover) to the toolchain through a **Custom MCP Server written in Go** — now fully integrated with **Splunk** as both a trigger source and findings destination.
 
 **Core design principle:** The LLM cannot run shell commands. It can only call typed Go functions. The MCP server is the security boundary — architectural enforcement, not prompt-based rules.
 
@@ -284,7 +284,7 @@ allblue/
 
 Full report: [docs/accuracy_report.md](docs/accuracy_report.md)
 
-Tested against SRL-2018 Compromised Enterprise Network (SANS DFIR Summit dataset):
+Tested against SRL-2018 Compromised Enterprise Network ( DFIR Summit dataset):
 
 | Metric | Result |
 |---|---|
@@ -305,4 +305,4 @@ MIT — see [LICENSE](LICENSE)
 
 [Splunk Agentic Ops Hackathon](https://splunk.devpost.com) — Security Track · June 2026
 
-Originally developed for [FIND EVIL! Hackathon](https://findevil.devpost.com/) — SANS Institute · April–June 2026
+Originally developed for [SPLUNK! Hackathon](https://splunk.devpost.com/) —Cisco Company · April–June 2026

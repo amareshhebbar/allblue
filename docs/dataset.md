@@ -3,7 +3,7 @@
 ## Primary Dataset: SRL-2018 Compromised Enterprise Network
 
 ### Source
-SANS Digital Forensics and Incident Response (DFIR) Summit training dataset, distributed as part of the FIND EVIL! hackathon at `HACKATHON-2026.zip`.
+Digital Forensics and Incident Response (DFIR) Summit training dataset, distributed as part of the SPLUNK! hackathon at `HACKATHON-2026.zip`.
 
 ### Evidence Files
 
@@ -48,7 +48,7 @@ Documented in `benchmark/ground_truth/srl2018_apt_ground_truth.json`.
 
 Derived from:
 - Manual Volatility analysis of the memory image
-- SANS DFIR training documentation
+- DFIR training documentation
 - Correlation with network connection artefacts
 
 ---
@@ -79,7 +79,7 @@ Derived from:
 
 ## Reproducibility
 
-To reproduce this benchmark on the SANS SIFT Workstation:
+To reproduce this benchmark:
 
 ```bash
 # 1. Clone and build

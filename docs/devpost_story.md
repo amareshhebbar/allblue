@@ -14,7 +14,7 @@ The name comes from the *Log Pose* — the compass in One Piece that records and
 
 ## What It Does
 
-AllBlue is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to the full SANS SIFT Workstation toolchain through a **Custom MCP Server written in Go** — the most architecturally sound pattern available.
+AllBlue is an autonomous DFIR triage agent that connects Claude (with Gemini failover) to the toolchain through a **Custom MCP Server written in Go** — the most architecturally sound pattern available.
 
 Given a memory dump or disk image, AllBlue autonomously:
 
