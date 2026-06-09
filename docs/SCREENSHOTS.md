@@ -5,19 +5,10 @@
 
 ---
 
-## Scene 1 — Project Structure
 
-![AllBlue project structure showing internal/splunk integration](../assets/s1.png)
+## Scene 1 — AllBlue MCP Server Starting
 
-**AllBlue repo structure — internal/splunk/ module wired into 15-tool MCP server alongside original 12 DFIR tools.**
-
-AllBlue's architecture is built around a Go MCP server that enforces a strict security boundary — the LLM cannot execute shell commands and can only call typed Go functions. The `internal/splunk/` package added for this hackathon contains three new files: `hec.go` for pushing findings to Splunk, `alert_handler.go` for receiving Splunk webhook alerts on port 8718, and `mcp_client.go` for querying the Splunk MCP Server for historical enrichment. The original 12 DFIR tools covering memory forensics, disk analysis, registry, YARA, and correlation remain unchanged.
-
----
-
-## Scene 2 — AllBlue MCP Server Starting
-
-![AllBlue MCP server starting with 15 registered tools including 3 new Splunk tools](../assets/s2.png)
+![AllBlue MCP server starting with 15 registered tools including 3 new Splunk tools](../assets/s1.png)
 
 **AllBlue v2.0 starts with 15 MCP tools — 3 new Splunk tools (✦) alongside original 12 DFIR tools, webhook live on :8718.**
 
@@ -25,9 +16,9 @@ The server registers all 15 typed MCP tools and immediately starts the Splunk we
 
 ---
 
-## Scene 3 — Splunk HEC Health Check
+## Scene 2 — Splunk HEC Health Check
 
-![Splunk HEC returning healthy status code 17 confirming event collector is ready](../assets/s3.png)
+![Splunk HEC returning healthy status code 17 confirming event collector is ready](../assets/s2.png)
 
 **Splunk HEC responding healthy — code 17 confirms the HTTP Event Collector is active and ready to receive AllBlue IOC events.**
 
@@ -35,9 +26,9 @@ Splunk's HTTP Event Collector running on port 8088 is the inbound channel for al
 
 ---
 
-## Scene 4 — Splunk Alert Triggers AllBlue Webhook
+## Scene 3 — Splunk Alert Triggers AllBlue Webhook
 
-![Splunk alert webhook POST to AllBlue returning 202 Accepted with session ID](../assets/s4.png)
+![Splunk alert webhook POST to AllBlue returning 202 Accepted with session ID](../assets/s3.png)
 
 **Splunk alert fires → AllBlue webhook accepts on :8718 → 202 Accepted → autonomous triage session launched in background.**
 
@@ -45,9 +36,9 @@ This is the core Splunk-to-AllBlue trigger flow. A Splunk alert (simulating a re
 
 ---
 
-## Scene 5 — Pushing SRL-2018 APT Findings to Splunk
+## Scene 4 — Pushing SRL-2018 APT Findings to Splunk
 
-![Five IOC findings and session summary being pushed to Splunk HEC with success responses](../assets/s5.png)
+![Five IOC findings and session summary being pushed to Splunk HEC with success responses](../assets/s4.png)
 
 **Real SRL-2018 APT findings pushed to Splunk — DKOM rootkit, C2 IP, code injection, hidden service, lateral movement — all confirmed.**
 
@@ -55,9 +46,9 @@ Five confirmed IOC findings from the validated SRL-2018 APT dataset are pushed t
 
 ---
 
-## Scene 6 — Splunk Integration Verified
+## Scene 5 — Splunk Integration Verified
 
-![Splunk HEC health check and inputs.conf showing allblue-token configuration](../assets/s6.png)
+![Splunk HEC health check and inputs.conf showing allblue-token configuration](../assets/s5.png)
 
 **HEC healthy + inputs.conf shows allblue-token configured — full Splunk integration verified end-to-end without requiring Splunk UI.**
 
@@ -65,7 +56,7 @@ The final verification shows two things: Splunk HEC is still healthy after recei
 
 ---
 
-## Scene 7 — Live Autonomous Triage + Splunk Push
+## Scene 6 — Live Autonomous Triage + Splunk Push
 
 [Click here to Redirect to the result](../TRIAGE_RESULT.md)
 
@@ -75,7 +66,7 @@ AllBlue runs a complete autonomous triage on the SRL-2018 evidence image. Pre-tr
 
 ---
 
-## Scene 8 — Benchmark Results
+## Scene 7 — Benchmark Results
 
 ![AllBlue benchmark results showing 100% precision and 0 hallucinations on SRL-2018 dataset](../assets/s7.png)
 
